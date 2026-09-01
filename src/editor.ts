@@ -21,6 +21,8 @@ export interface Editor {
   setVisiting: (cafe: DreamCafe | null) => void
   setSession: (s: Session | null) => void
   openDirectory: () => void
+  /** Live "n studying now" counts per café id, from realtime presence. */
+  setLiveCounts: (counts: Record<string, number>) => void
 }
 
 /** iPhone-style red counter pinned to a button's corner. */
@@ -484,7 +486,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     const seats = capacityOfPlaced(cafe.placed)
     row.innerHTML = `
       <span class="dir-name">${cafe.name}<i>${cafe.vibe}</i></span>
-      <span class="dir-meta"><b>${cafe.ruleset}</b><i>${cafe.sims.length}/${seats} seats</i></span>
+      <span class="dir-meta"><b>${cafe.ruleset}</b><i>${cafe.sims.length}/${seats} seats</i><i class="dir-live hidden" data-cafe="${cafe.id}"></i></span>
     `
     const go = document.createElement('button')
     go.className = 'glossy-btn ed-mini'
@@ -786,6 +788,13 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     openDirectory() {
       setMode('view')
       showLeft(dirWin)
+    },
+    setLiveCounts(counts) {
+      dirList.querySelectorAll<HTMLElement>('.dir-live').forEach((el) => {
+        const n = counts[el.dataset.cafe!] ?? 0
+        el.textContent = n > 0 ? `${n} here right now ♪` : ''
+        el.classList.toggle('hidden', n <= 0)
+      })
     },
   }
 }

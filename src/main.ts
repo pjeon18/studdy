@@ -24,6 +24,7 @@ import * as store from './store'
 import { CATALOG } from './items'
 import { needsOnboarding, runOnboarding } from './onboarding'
 import { initCloud } from './cloud'
+import { initPresence, setPlace, updateState } from './presence'
 import { openGallery, openDrawPad, seedNotes, closeGuestbook } from './guestbook'
 import { openSalon, closeSalon } from './salon'
 import { closeProfileCard } from './ui'
@@ -226,8 +227,16 @@ if (isShowcase) {
       closeSalon()
       closeProfileCard()
       editor?.setVisiting(cafe)
+      setPlace(cafe?.id ?? null) // my presence follows me
     },
-    onSession: (s) => editor?.setSession(s),
+    onSession: (s) => {
+      editor?.setSession(s)
+      updateState(
+        s
+          ? { seatKey: s.seatKey, napkin: s.napkin, headphones: s.headphones, since: s.startedAt }
+          : { seatKey: null, napkin: '' }
+      )
+    },
     onPatronCard: (data, x, y) => ui.openProfileCard(x, y, data),
     onGuestbook: (atHome) => {
       const uiEl = document.getElementById('ui')!
@@ -301,10 +310,29 @@ function showBubble(anchor: () => THREE.Vector3 | null, text: string, ms = 4500)
   }, ms)
 }
 
-if (game) buildChat(document.getElementById('ui')!, game, showBubble)
+const chat = game ? buildChat(document.getElementById('ui')!, game, showBubble) : null
 
 // accounts + cloud saves (no-op unless Supabase env vars are set)
-if (game) initCloud()
+if (game) {
+  initCloud()
+  // realtime presence: real people in the room, live chat, directory counts
+  initPresence({
+    onPatrons: (patrons) => game!.setRemotePatrons(patrons),
+    onChat: (from, text) => {
+      chat?.addLine(from, text)
+      showBubble(() => game!.getSimAnchor(from), text)
+    },
+    onLobby: (counts) => editor?.setLiveCounts(counts),
+  })
+  // napkin edits and headphone flips ride along every few seconds
+  setInterval(() => {
+    const s = game!.getSession()
+    if (s) updateState({ napkin: s.napkin, headphones: s.headphones })
+  }, 6000)
+  // a new look or name shows up for everyone right away
+  store.on('avatar', () => updateState({}))
+  store.on('info', () => updateState({}))
+}
 
 // ---------- sound unlock + UI ticks ----------
 document.addEventListener('pointerdown', (e) => {

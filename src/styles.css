@@ -430,6 +430,8 @@ body::after {
 .dir-meta { text-align: right; line-height: 1.1; }
 .dir-meta b { display: block; font-size: 12px; }
 .dir-meta i { font-style: normal; font-size: 11px; color: var(--ink-2); }
+.dir-meta .dir-live { display: block; color: #2E9E5B; font-weight: 700; }
+.dir-meta .dir-live.hidden { display: none; }
 
 .session-hud {
   left: 50%;

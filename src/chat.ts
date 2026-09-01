@@ -2,6 +2,7 @@
 // pop over heads. Your napkin status stays permanent; chat lines are fleeting.
 import * as store from './store'
 import { toggleRightWindow, esc } from './ui'
+import { sendChat } from './presence'
 import { sfx } from './sounds'
 import type { Game } from './game'
 import type * as THREE from 'three'
@@ -92,6 +93,7 @@ export function buildChat(ui: HTMLElement, game: Game, showBubble: ShowBubble) {
     input.value = ''
     sfx.tick()
     addLine(store.save.info.name || 'you', text, true)
+    sendChat(text) // real people in the room hear you (no-op offline)
     // the fleeting bubble over your head — the napkin status is the permanent one
     showBubble(() => game.getPlayerAnchor(), text)
   })

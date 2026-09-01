@@ -570,3 +570,29 @@ Audited ahead of real accounts; findings fixed:
   at any viewport height.
 - True white options: "snow" wall (#FFFFFF), "snow" white-plank floor, and
   a flat "carpet-snow" pure-white floor.
+
+### Phase 2 — realtime presence (2026-09-01)
+- **Salon/avatar fixes** — the crown highlight is now derived from the
+  chosen hair color (fixed brown read as a bald spot on dyed hair); the
+  thread & thimble / snip snip window widened to 352px, swatch rows wrap
+  inside it, glasses/length option buttons compact. Verified in the live
+  dev pane (temporary pink dye, then reverted).
+- **presence.ts** — Supabase Realtime, no tables. One channel per café
+  (`studdy:cafe:{id}`, `studdy:home:{uid}`) carries presence (who's here,
+  what seat, napkin, headphones, avatar) + café chat broadcasts; a global
+  `studdy:lobby` channel carries only "who is at which café" for the
+  directory. Presence key is uid+tab-nonce (two tabs = two visible people,
+  which is honest and testable).
+- **Trust boundary** — every network field re-validated: names/napkins
+  length-capped, colors must match #rrggbb before touching the scene,
+  chat lines trimmed to 80 chars and rendered through esc(). Outbound chat
+  is rate-capped (1 per 1.2s).
+- **Seat conflicts** — earliest `since` claim wins; sims always yield their
+  seat to a real person; if a remote claimed your seat first you hop up
+  with a toast (focused minutes still pay out via the normal leaveSeat).
+- **Directory live counts** — green "n here right now ♪" per café row,
+  driven by the lobby channel.
+- Verified end-to-end with two live tabs: remote sitter appears at home,
+  chat broadcast arrives (log line + head bubble + unread badge), standing
+  up / leaving removes the sitter, moon latte showed "1 here right now ♪",
+  and the remote rendered seated among the sims inside moon latte.

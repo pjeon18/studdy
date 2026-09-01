@@ -9,6 +9,7 @@ import * as store from './store'
 import { sfx } from './sounds'
 import { toast, heartBurst, type CardData } from './ui'
 import type { DreamCafe, SimPersona } from './cafes'
+import type { RemotePatron } from './presence'
 import type { PlacedItem, RoomDoc } from './types'
 
 export type EditMode = 'view' | 'room' | 'furnish'
@@ -470,13 +471,23 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     return out
   }
 
+  /** A sim persona, or a real remote player's (real=true, with full avatar). */
+  type PatronPersona = SimPersona & {
+    skin?: string
+    hairStyle?: 'short' | 'long'
+    glasses?: boolean
+    real?: boolean
+  }
+
   interface Occupant {
     group: THREE.Group
     animate: (dt: number, t: number) => void
-    persona?: SimPersona
+    persona?: PatronPersona
     sitSince: number
   }
   const occupants = new Map<string, Occupant>()
+  /** presence key → seat key, for the real people rendered in this room. */
+  const remoteSeat = new Map<string, string>()
   let session: Session | null = null
 
   const playerOpts = () => {
@@ -507,7 +518,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     return Math.PI * 0.8
   }
 
-  function spawnSitter(seat: SeatRef, persona?: SimPersona): Occupant {
+  function spawnSitter(seat: SeatRef, persona?: PatronPersona): Occupant {
     const person = buildPerson(persona ?? playerOpts())
     const entry = CATALOG[seat.itemId]
     const y = entry.seatY ?? 1.8
@@ -536,6 +547,69 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
 
   function clearOccupants() {
     for (const k of [...occupants.keys()]) removeOccupant(k)
+    remoteSeat.clear()
+  }
+
+  /** Reconcile the real people in this room (from realtime presence).
+   *  Earliest claim wins a contested seat; real people bump sims. */
+  function setRemotePatrons(patrons: RemotePatron[]) {
+    const seats = seatRefs()
+    // one winner per seat: the earliest claim
+    const want = new Map<string, RemotePatron>()
+    for (const p of patrons) {
+      if (!p.seatKey || !seats.some((s) => s.key === p.seatKey)) continue
+      const cur = want.get(p.seatKey)
+      if (!cur || p.since < cur.since) want.set(p.seatKey, p)
+    }
+    // drop remotes that left, stood up, or moved seats
+    for (const [key, seatKey] of [...remoteSeat]) {
+      if (want.get(seatKey)?.key !== key) {
+        removeOccupant(seatKey)
+        remoteSeat.delete(key)
+      }
+    }
+    for (const [seatKey, p] of want) {
+      const status = p.napkin ? `"${p.napkin}"` : '"studying ♪"'
+      if (remoteSeat.get(p.key) === seatKey) {
+        // already rendered — keep the profile card fresh
+        const occ = occupants.get(seatKey)
+        if (occ?.persona) {
+          occ.persona.status = status
+          occ.persona.working = p.napkin || '…'
+          occ.persona.headphones = p.headphones
+        }
+        continue
+      }
+      const cur = occupants.get(seatKey)
+      if (cur) {
+        if (session?.seatKey === seatKey) {
+          if (p.since >= session.startedAt) continue // I was here first
+          leaveSeat() // they were — hop up gracefully (focused time still pays out)
+          toast('someone was already in that seat ♪')
+        } else if (cur.persona && !cur.persona.real) {
+          removeOccupant(seatKey) // a sim always gives up its seat for a real person
+        } else {
+          continue
+        }
+      }
+      const seat = seats.find((s) => s.key === seatKey)!
+      const occ = spawnSitter(seat, {
+        name: p.name,
+        status,
+        working: p.napkin || '…',
+        headphones: p.headphones,
+        streak: 'here now ★',
+        hair: p.hair,
+        sweater: p.sweater,
+        sweaterDeep: `#${new THREE.Color(p.sweater).multiplyScalar(0.78).getHexString()}`,
+        skin: p.skin,
+        hairStyle: p.hairStyle,
+        glasses: p.glasses,
+        real: true,
+      })
+      occ.sitSince = p.since
+      remoteSeat.set(p.key, seatKey)
+    }
   }
 
   // ---------- the standing player ----------
@@ -1105,6 +1179,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     getVisiting: () => visiting,
     leaveSeat,
     getSession: () => session,
+    setRemotePatrons,
     /** Begin carrying the standing player (returns true if the grab landed). */
     startDrag(ray: THREE.Raycaster): boolean {
       if (mode !== 'view' || !standing) return false
