@@ -67,6 +67,8 @@ export function buildPerson(opts: PersonOpts, pose: Pose = 'sit'): Person {
   meshes.push(bodyMesh)
 
   const skin = opts.skin ?? PAL.skin
+  // the crown highlight follows the hair color (a fixed brown looks like a bald spot on dyed hair)
+  const hairHi = `#${new THREE.Color(opts.hair).lerp(new THREE.Color('#FFFFFF'), 0.22).getHexString()}`
 
   // head 17 x 13 x 16 — compact chibi: short crown, low bangs, side locks
   const headGroup = new THREE.Group()
@@ -74,7 +76,7 @@ export function buildPerson(opts: PersonOpts, pose: Pose = 'sit'): Person {
   hd.roundedBox(0, 0, 0, 16, 12, 15, skin)
   hd.roundedBox(0, 9, 0, 16, 12, 15, opts.hair)
   hd.roundedBox(1, 13, 1, 15, 13, 14, opts.hair) // single low crown step
-  hd.fill(5, 13, 4, 11, 13, 11, PAL.hairHi) // crown highlight
+  hd.fill(5, 13, 4, 11, 13, 11, hairHi) // crown highlight
   hd.fill(0, 0, 0, 16, 8, 5, opts.hair) // back of head
   hd.fill(0, 3, 0, 1, 8, 15, opts.hair) // sides
   hd.fill(15, 3, 0, 16, 8, 15, opts.hair)

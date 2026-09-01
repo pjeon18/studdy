@@ -736,7 +736,7 @@ textarea.px-input { resize: none; line-height: 1.35; }
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 296px;
+  width: 352px;
   z-index: 70;
 }
 .salon-body { display: flex; gap: 10px; }
@@ -747,7 +747,10 @@ textarea.px-input { resize: none; line-height: 1.35; }
   image-rendering: pixelated;
   flex: none;
 }
-.salon-rows { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.salon-rows { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.salon-rows .ed-swatches { max-width: none; justify-content: flex-start; }
+.salon-rows .ed-row { flex-wrap: wrap; }
+.salon-opt { font-size: 12px; padding: 0 5px 2px; }
 .salon-opt.active {
   border-image-source: var(--px-btn-active);
   color: #fff;

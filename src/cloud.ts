@@ -86,6 +86,11 @@ export function cloudUser(): { id: string; email?: string; anonymous: boolean } 
   return { id: session.user.id, email: session.user.email ?? undefined, anonymous: !session.user.email }
 }
 
+/** The live client, for realtime features (null when unconfigured/offline). */
+export function getSupabase(): SupabaseClient | null {
+  return session ? supa : null
+}
+
 const MAX_DOC_BYTES = 1_500_000 // the DB enforces 2MB; stay well under it
 
 /** Queue a debounced upload of the current save. */

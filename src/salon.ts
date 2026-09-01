@@ -101,7 +101,7 @@ export function openSalon(ui: HTMLElement, kind: 'barber' | 'boutique' | 'all') 
     swatchRow('sweater', 'sweater', Object.values(SEAT_COLORS).map(([v]) => ({ v, css: v })))
     optRow('glasses', 'glasses', [
       { v: 'false', label: 'none' },
-      { v: 'true', label: 'glasses ♪' },
+      { v: 'true', label: 'on ♪' },
     ])
   }
   const note = document.createElement('div')
