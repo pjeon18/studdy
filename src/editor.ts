@@ -792,7 +792,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     setLiveCounts(counts) {
       dirList.querySelectorAll<HTMLElement>('.dir-live').forEach((el) => {
         const n = counts[el.dataset.cafe!] ?? 0
-        el.textContent = n > 0 ? `${n} here right now ♪` : ''
+        el.textContent = n > 0 ? `${n} here now ♪` : ''
         el.classList.toggle('hidden', n <= 0)
       })
     },
