@@ -11,6 +11,8 @@ import { getSupabase, cloudUser } from './cloud'
 import * as store from './store'
 
 export interface PatronState {
+  /** Full user id — lets profile cards offer real friend requests. */
+  uid: string
   name: string
   hair: string
   sweater: string
@@ -39,6 +41,7 @@ interface Handlers {
 const NAME_MAX = 20
 const CHAT_MAX = 80
 const HEX = /^#[0-9a-fA-F]{6}$/
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 // one presence identity per tab: same account in two tabs still reads as two
 // patrons, which is both honest and what makes local testing possible
@@ -61,6 +64,7 @@ function myKey(): string | null {
 function myState(): PatronState {
   const a = store.save.avatar
   return {
+    uid: cloudUser()?.id ?? '',
     name: (store.save.info.name || 'someone').slice(0, NAME_MAX),
     hair: a.hair,
     sweater: a.sweater,
@@ -87,6 +91,7 @@ function cleanPatron(key: string, raw: unknown): RemotePatron | null {
   if (!name) return null
   return {
     key,
+    uid: typeof r.uid === 'string' && UUID.test(r.uid) ? r.uid : '',
     name,
     hair: color(r.hair, '#7C5940'),
     sweater: color(r.sweater, '#7383BC'),
@@ -100,10 +105,21 @@ function cleanPatron(key: string, raw: unknown): RemotePatron | null {
   }
 }
 
+/** Place tokens: a dream-café id, `user:{ownerId}` for a real user's café,
+ *  or null for my own home. A real café shares its OWNER's home channel,
+ *  so owner and visitors always see each other. */
 function topicFor(place: string | null): string | null {
+  if (place?.startsWith('user:')) return `home:${place.slice(5)}`
   if (place) return `cafe:${place}`
   const u = cloudUser()
   return u ? `home:${u.id}` : null
+}
+
+/** The lobby token for the current place (homes unify as user:{ownerId}). */
+function lobbyAt(): string | null {
+  if (wantPlace) return wantPlace
+  const u = cloudUser()
+  return u ? `user:${u.id}` : null
 }
 
 function emitPatrons() {
@@ -153,6 +169,9 @@ function ensureJoined() {
   })
 }
 
+/** uid → place token, from the latest lobby sync (for the friends list). */
+const lobbyByUid = new Map<string, string>()
+
 function ensureLobby() {
   const supa = getSupabase()
   if (!supa || !handlers || lobby) return
@@ -163,9 +182,13 @@ function ensureLobby() {
   ch.on('presence', { event: 'sync' }, () => {
     if (lobby !== ch || !handlers) return
     const counts: Record<string, number> = {}
-    for (const metas of Object.values(ch.presenceState<{ at: string }>())) {
+    lobbyByUid.clear()
+    for (const metas of Object.values(ch.presenceState<{ at: string; uid: string }>())) {
       const at = typeof metas[0]?.at === 'string' ? metas[0].at.slice(0, 48) : ''
-      if (at) counts[at] = (counts[at] ?? 0) + 1
+      if (!at) continue
+      counts[at] = (counts[at] ?? 0) + 1
+      const uid = metas[0]?.uid
+      if (typeof uid === 'string' && UUID.test(uid)) lobbyByUid.set(uid, at)
     }
     handlers.onLobby(counts)
   })
@@ -179,10 +202,15 @@ function ensureLobby() {
 
 function trackLobby() {
   if (!lobby) return
-  const at = wantPlace ?? 'home'
-  if (at === lobbyTracked) return
+  const at = lobbyAt()
+  if (!at || at === lobbyTracked) return
   lobbyTracked = at
-  lobby.track({ at })
+  lobby.track({ at, uid: cloudUser()?.id ?? '' })
+}
+
+/** Where a user is right now: a place token, or null when offline. */
+export function whereIs(userId: string): string | null {
+  return lobbyByUid.get(userId) ?? null
 }
 
 /** Boot the presence layer. Safe to call always; waits for the cloud session. */

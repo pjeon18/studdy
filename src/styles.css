@@ -432,6 +432,26 @@ body::after {
 .dir-meta i { font-style: normal; font-size: 11px; color: var(--ink-2); }
 .dir-meta .dir-live { display: block; color: #2E9E5B; font-weight: 700; }
 .dir-meta .dir-live.hidden { display: none; }
+.dir-real.hidden { display: none; }
+.dir-real { margin-bottom: 8px; }
+
+/* little section headers inside friends / directory windows */
+.fr-head {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  padding: 6px 2px 3px;
+}
+
+/* moderation buttons riding on a guestbook note */
+.gb-note { position: relative; }
+.gb-mod {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  padding-top: 3px;
+}
+.gb-mod .glossy-btn { font-size: 11px; }
 
 .session-hud {
   left: 50%;

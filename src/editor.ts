@@ -12,6 +12,8 @@ import { beanImg } from './pixelui'
 import { sfx, setStation, STATIONS, isEnabled, setEnabled, setMusicVolume, getMusicVolume, type Station } from './sounds'
 import { capacityOfPlaced, type Game, type Session } from './game'
 import { cloudConfigured, cloudUser, linkEmail, signOut } from './cloud'
+import { fetchCafeByUser, listOpenCafes, listFriends, acceptRequest, declineRequest, getMyHandle, shareUrl } from './social'
+import { whereIs } from './presence'
 import type { FloorStyle, WallStyle } from './types'
 
 export interface Editor {
@@ -23,6 +25,8 @@ export interface Editor {
   openDirectory: () => void
   /** Live "n studying now" counts per café id, from realtime presence. */
   setLiveCounts: (counts: Record<string, number>) => void
+  /** Incoming friend-request count (the ♥ tab badge). */
+  setRequestCount: (n: number) => void
 }
 
 /** iPhone-style red counter pinned to a button's corner. */
@@ -118,6 +122,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
         <button class="glossy-btn ed-mini set-link">send link ♪</button>
       </div>
       <div class="set-row set-out-row hidden"><span></span><button class="glossy-btn ed-mini set-out">sign out</button></div>
+      <div class="set-row set-share-row hidden"><span>café link</span><button class="glossy-btn btn-pink ed-mini set-share">copy ♪</button></div>
       <div class="set-row"><span>save</span><button class="glossy-btn ed-mini set-reset">reset everything</button></div>
       <div class="ed-note">studdy · a study spot that never closes ♪</div>
     </div>
@@ -129,10 +134,25 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   const acctBox = setWin.querySelector('.set-acct-box') as HTMLElement
   const outRow = setWin.querySelector('.set-out-row') as HTMLElement
   const setEmail = setWin.querySelector('.set-email') as HTMLInputElement
+  const shareRow = setWin.querySelector('.set-share-row') as HTMLElement
+  const shareBtn = setWin.querySelector('.set-share') as HTMLButtonElement
+  shareBtn.addEventListener('click', async () => {
+    const url = shareUrl()
+    if (!url) return
+    try {
+      await navigator.clipboard.writeText(url)
+      toast('café link copied — send it to a friend ♪')
+    } catch {
+      prompt('your café link ♪', url)
+    }
+  })
   const paintSettings = () => {
     setSound.textContent = isEnabled() ? 'on ♪' : 'off'
     setSound.classList.toggle('btn-mint', isEnabled())
     setMusic.value = String(Math.round(getMusicVolume() * 100))
+    const handle = getMyHandle()
+    shareRow.classList.toggle('hidden', !handle)
+    if (handle) shareBtn.textContent = `@${handle} · copy ♪`
     if (!cloudConfigured()) {
       setAcct.textContent = 'local only'
       acctBox.classList.add('hidden')
@@ -474,12 +494,50 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   dirWin.innerHTML = `
     <div class="y2k-titlebar"><span class="tb-dots"><i></i><i></i></span><span class="tb-title">café directory</span></div>
     <div class="y2k-body">
+      <div class="dir-real hidden"><div class="fr-head">real cafés ♪</div><div class="dir-real-list"></div></div>
       <div class="dir-list"></div>
       <div class="ed-note">every café is a real study spot ♪</div>
     </div>
   `
   ui.appendChild(dirWin)
+  let lastCounts: Record<string, number> = {}
+  const paintLiveCounts = () => {
+    dirWin.querySelectorAll<HTMLElement>('.dir-live').forEach((el) => {
+      const n = lastCounts[el.dataset.cafe!] ?? 0
+      el.textContent = n > 0 ? `${n} here now ♪` : ''
+      el.classList.toggle('hidden', n <= 0)
+    })
+  }
+  const dirReal = dirWin.querySelector('.dir-real') as HTMLElement
+  const dirRealList = dirWin.querySelector('.dir-real-list') as HTMLElement
   const dirList = dirWin.querySelector('.dir-list') as HTMLElement
+
+  /** Other people's open cafés, freshest first. */
+  const renderRealCafes = async () => {
+    const cafes = await listOpenCafes()
+    dirReal.classList.toggle('hidden', !cafes.length)
+    dirRealList.textContent = ''
+    for (const c of cafes) {
+      const row = document.createElement('div')
+      row.className = 'dir-row'
+      row.innerHTML = `
+        <span class="dir-name">${esc(c.name)}'s café<i>@${esc(c.handle)}</i></span>
+        <span class="dir-meta"><i class="dir-live hidden" data-cafe="user:${esc(c.userId)}"></i></span>
+      `
+      const go = document.createElement('button')
+      go.className = 'glossy-btn ed-mini'
+      go.textContent = 'visit'
+      go.addEventListener('click', async () => {
+        dirWin.classList.add('hidden')
+        const cafe = await fetchCafeByUser(c.userId)
+        if (cafe) game.visit(cafe)
+        else toast('their café is closed right now ♪')
+      })
+      row.appendChild(go)
+      dirRealList.appendChild(row)
+    }
+    paintLiveCounts()
+  }
   for (const cafe of DREAM_CAFES) {
     const row = document.createElement('div')
     row.className = 'dir-row'
@@ -640,30 +698,116 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   friendsTab.textContent = '♥ friends'
   ui.appendChild(friendsTab)
 
-  // …and unchecked updates on the friends tab
-  const FRIEND_UPDATES = [
-    'peach_pit accepted your friend request ♪',
-    'quiet_quokka is on a 33-day streak — say hi!',
-  ]
+  // the badge shows real pending friend requests (wired via setRequestCount)
   const friendsBadge = attachBadge(friendsTab)
-  let friendUpdatesSeen = false
-  friendsBadge(FRIEND_UPDATES.length)
 
   const friendsWin = document.createElement('div')
   friendsWin.className = 'y2k-window friends-window rslot-window hidden'
   friendsWin.innerHTML = `
     <div class="y2k-titlebar"><span class="tb-dots"><i></i><i></i></span><span class="tb-title">friends</span><button class="tb-close">×</button></div>
     <div class="y2k-body">
-      <div class="fr-updates">${FRIEND_UPDATES.map((u) => `<div class="fr-update">✦ ${u}</div>`).join('')}</div>
+      <div class="fr-real"></div>
+      <div class="fr-head">the regulars ♪</div>
       <div class="friends-list"></div>
     </div>
   `
   ui.appendChild(friendsWin)
   friendsWin.querySelector('.tb-close')!.addEventListener('click', () => friendsWin.classList.add('hidden'))
+  const friendsReal = friendsWin.querySelector('.fr-real') as HTMLElement
   const friendsList = friendsWin.querySelector('.friends-list') as HTMLElement
   const STATE_LABEL: Record<FriendState, string> = {
     studying: 'studying', online: 'online', idle: 'idle', offline: 'offline',
   }
+
+  const visitUser = async (userId: string) => {
+    friendsWin.classList.add('hidden')
+    const cafe = await fetchCafeByUser(userId)
+    if (cafe) game.visit(cafe)
+    else toast('their café is closed right now ♪')
+  }
+
+  /** Where a real person is, as a friendly line + presence dot state. */
+  const placeLine = (userId: string): { state: FriendState; label: string } => {
+    const at = whereIs(userId)
+    if (!at) return { state: 'offline', label: 'away right now' }
+    if (at === `user:${userId}`) return { state: 'studying', label: 'at their café ♪' }
+    const dc = DREAM_CAFES.find((c) => c.id === at)
+    if (dc) return { state: 'studying', label: `@ ${dc.name}` }
+    return { state: 'studying', label: 'out visiting ♪' }
+  }
+
+  const personRow = (p: { userId: string; handle: string; name: string; avatar: { hair: string; sweater: string } }, state: FriendState, detail: string) => {
+    const row = document.createElement('div')
+    row.className = `friend-row st-${state}`
+    row.innerHTML = `
+      <canvas class="fr-face" width="48" height="48"></canvas>
+      <span class="fr-id">${esc(p.name)}
+        <i>@${esc(p.handle)}</i>
+        <i>${esc(detail)}</i>
+      </span>
+      <span class="fr-right"><span class="fr-state"><i class="fr-dot"></i>${STATE_LABEL[state]}</span></span>
+    `
+    drawPortrait(row.querySelector('.fr-face') as HTMLCanvasElement, p.avatar.hair, p.avatar.sweater)
+    return row
+  }
+
+  /** Rebuild the real friends + incoming requests sections. */
+  const renderReal = async () => {
+    const { friends, requests } = await listFriends()
+    friendsReal.textContent = ''
+    if (requests.length) {
+      const head = document.createElement('div')
+      head.className = 'fr-head'
+      head.textContent = 'wants to be friends ♪'
+      friendsReal.appendChild(head)
+      for (const r of requests) {
+        const row = personRow(r, 'online', 'sent you a request')
+        const right = row.querySelector('.fr-right') as HTMLElement
+        right.textContent = ''
+        const yes = document.createElement('button')
+        yes.className = 'glossy-btn btn-pink ed-mini'
+        yes.textContent = '♥ yes'
+        yes.addEventListener('click', async () => {
+          if (await acceptRequest(r.rowId)) {
+            toast(`you and ${r.name} are friends now ♪`)
+            renderReal()
+          }
+        })
+        const no = document.createElement('button')
+        no.className = 'glossy-btn ed-mini'
+        no.textContent = 'no'
+        no.addEventListener('click', async () => {
+          await declineRequest(r.rowId)
+          renderReal()
+        })
+        right.append(yes, no)
+        friendsReal.appendChild(row)
+      }
+    }
+    if (friends.length) {
+      const head = document.createElement('div')
+      head.className = 'fr-head'
+      head.textContent = 'your friends ♪'
+      friendsReal.appendChild(head)
+      for (const f of friends) {
+        const where = placeLine(f.userId)
+        const row = personRow(f, where.state, where.label)
+        const go = document.createElement('button')
+        go.className = 'glossy-btn ed-mini'
+        go.textContent = 'visit'
+        go.addEventListener('click', () => visitUser(f.userId))
+        row.querySelector('.fr-right')!.appendChild(go)
+        friendsReal.appendChild(row)
+      }
+    }
+    if (!requests.length && !friends.length) {
+      const note = document.createElement('div')
+      note.className = 'ed-note'
+      note.textContent = 'no friends yet — tap someone studying near you ♪'
+      friendsReal.appendChild(note)
+    }
+  }
+
   for (const f of FRIENDS) {
     const row = document.createElement('div')
     row.className = `friend-row st-${f.state}`
@@ -691,10 +835,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   }
   friendsTab.addEventListener('click', () => {
     toggleRightWindow(friendsWin, friendsTab)
-    if (!friendsWin.classList.contains('hidden') && !friendUpdatesSeen) {
-      friendUpdatesSeen = true
-      friendsBadge(0)
-    }
+    if (!friendsWin.classList.contains('hidden')) renderReal()
   })
 
   // ---------- debug ----------
@@ -788,13 +929,14 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     openDirectory() {
       setMode('view')
       showLeft(dirWin)
+      renderRealCafes()
     },
     setLiveCounts(counts) {
-      dirList.querySelectorAll<HTMLElement>('.dir-live').forEach((el) => {
-        const n = counts[el.dataset.cafe!] ?? 0
-        el.textContent = n > 0 ? `${n} here now ♪` : ''
-        el.classList.toggle('hidden', n <= 0)
-      })
+      lastCounts = counts
+      paintLiveCounts()
+    },
+    setRequestCount(n) {
+      friendsBadge(n)
     },
   }
 }

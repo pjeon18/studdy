@@ -477,6 +477,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     hairStyle?: 'short' | 'long'
     glasses?: boolean
     real?: boolean
+    uid?: string
   }
 
   interface Occupant {
@@ -606,6 +607,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
         hairStyle: p.hairStyle,
         glasses: p.glasses,
         real: true,
+        uid: p.uid || undefined,
       })
       occ.sitSince = p.since
       remoteSeat.set(p.key, seatKey)
@@ -766,7 +768,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
 
   function cardFor(key: string): CardData {
     const occ = occupants.get(key)
-    if (occ?.persona) return { ...occ.persona, focusedSince: occ.sitSince }
+    if (occ?.persona) return { ...occ.persona, focusedSince: occ.sitSince, userId: occ.persona.uid }
     return playerCard()
   }
 

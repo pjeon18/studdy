@@ -33,6 +33,8 @@ export interface CardData {
   focusedSince: number
   hair?: string
   sweater?: string
+  /** Set for real people — enables the real + friend / visit café actions. */
+  userId?: string
 }
 
 const MOON_LATTE: CardData = {
@@ -102,13 +104,21 @@ export interface UICallbacks {
   onFurnitureLight: (mult: number) => void
   /** Turn the standing player (the self card's "↻ turn around"). */
   onTurn?: () => void
+  /** Send a real friend request (profile cards of real people). */
+  onFriendUser?: (userId: string) => void
+  /** Travel to a real user's café (profile cards of real people). */
+  onVisitUser?: (userId: string) => void
 }
 
 let turnHook: (() => void) | undefined
+let friendHook: ((userId: string) => void) | undefined
+let visitUserHook: ((userId: string) => void) | undefined
 
 export function buildUI(cb: UICallbacks) {
   const ui = document.getElementById('ui')!
   turnHook = cb.onTurn
+  friendHook = cb.onFriendUser
+  visitUserHook = cb.onVisitUser
 
   // wordmark: rasterized pixel logo (see makeLogo)
   const brand = document.createElement('div')
@@ -260,7 +270,7 @@ function openProfileCard(ui: HTMLElement, x: number, y: number, data: CardData =
         ${
           data.self
             ? '<button class="glossy-btn btn-mint pc-turn">↻ turn around</button>'
-            : '<button class="glossy-btn btn-pink">+ friend</button><button class="glossy-btn btn-mint">visit café</button>'
+            : '<button class="glossy-btn btn-pink pc-friend">+ friend</button><button class="glossy-btn btn-mint pc-visit">visit café</button>'
         }
       </div>
     </div>
@@ -298,7 +308,15 @@ function openProfileCard(ui: HTMLElement, x: number, y: number, data: CardData =
   card.querySelectorAll('.pc-actions .glossy-btn').forEach((btn) =>
     btn.addEventListener('click', () => {
       if (btn.classList.contains('pc-turn')) turnHook?.()
-      else toast('coming soon ♪')
+      else if (data.userId && btn.classList.contains('pc-friend')) friendHook?.(data.userId)
+      else if (data.userId && btn.classList.contains('pc-visit')) {
+        closeProfileCard()
+        visitUserHook?.(data.userId)
+      } else if (!data.userId && btn.classList.contains('pc-friend')) {
+        toast('they’re a regular — always around ♪')
+      } else {
+        toast('coming soon ♪')
+      }
     })
   )
 

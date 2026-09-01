@@ -596,3 +596,39 @@ Audited ahead of real accounts; findings fixed:
   chat broadcast arrives (log line + head bubble + unread badge), standing
   up / leaving removes the sitter, moon latte showed "1 here right now ♪",
   and the remote rendered seated among the sims inside moon latte.
+
+### Phase 3 — the real social loop (2026-09-01)
+- **New schema** (`supabase/phase3.sql`, must be run in the SQL editor):
+  profiles (unique handle + display name + portrait avatar), cafes (the
+  publishable room doc, 512KB cap), friends (pending/accepted, one row per
+  pair), guest_notes (PNG data-URL notes, 80KB cap), blocks. RLS on all
+  five, `to authenticated`, anon revoked, explicit grants; friends UPDATE
+  is column-scoped to `status` only (an unscoped grant would let an
+  accepter rewrite `requester`); guest-note inserts require the target
+  café to be open with its guestbook on, the author unblocked, the signed
+  name to match their profile, and a 5-minute per-book cooldown.
+- **social.ts** — publishes {room, placed, info} (never inventory/beans/
+  xp/notes) debounced on change; claims a handle from the name slug with
+  salted collision retries; fetched café docs are fully re-sanitized
+  (unknown furniture dropped, coords clamped, colors #rrggbb, strings
+  capped) before the renderer sees them; friends + requests + notes +
+  blocks APIs all no-op politely when the schema is missing (verified:
+  one console warning, zero crashes, game fully playable).
+- **Visiting real cafés** — real cafés arrive as DreamCafe objects with
+  id `user:{ownerId}` and no sims (real presence peoples them); presence
+  routes `user:` places onto the owner's home channel so owner + visitors
+  share a room; lobby tokens unify homes as `user:{uid}` for live counts.
+  Verified with a synthetic user café: renders, marquee swaps, go home.
+- **Share links** — `?cafe=<handle>` walks you to that café after splash
+  (and after onboarding+tour for brand-new visitors), waiting for the
+  async cloud sign-in; "café link · copy" row in settings.
+- **Friends UI** — ♥ tab badge = real pending requests (60s poll);
+  window shows requests (♥ yes / no) and friends (live whereabouts from
+  the lobby, visit button) above "the regulars ♪" sims; profile cards of
+  real people gained working + friend / visit café actions.
+- **Guestbook** — notes left at real cafés insert into the owner's book;
+  the gallery merges cloud notes with local seeds and gives each cloud
+  note remove + block (block also sweeps their notes + any friendship).
+- Cross-user end-to-end needs two real accounts (captcha blocks creating
+  a second automated one): verify in a normal + incognito window once
+  phase3.sql is run.

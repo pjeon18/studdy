@@ -23,8 +23,10 @@ import { unlock, sfx } from './sounds'
 import * as store from './store'
 import { CATALOG } from './items'
 import { needsOnboarding, runOnboarding } from './onboarding'
-import { initCloud } from './cloud'
+import { initCloud, getSupabase } from './cloud'
 import { initPresence, setPlace, updateState } from './presence'
+import { initSocial, fetchCafeByUser, fetchCafeByHandle, requestFriend } from './social'
+import { toast } from './ui'
 import { openGallery, openDrawPad, seedNotes, closeGuestbook } from './guestbook'
 import { openSalon, closeSalon } from './salon'
 import { closeProfileCard } from './ui'
@@ -241,7 +243,12 @@ if (isShowcase) {
     onGuestbook: (atHome) => {
       const uiEl = document.getElementById('ui')!
       if (atHome) openGallery(uiEl)
-      else openDrawPad(uiEl, game?.getVisiting()?.name ?? 'this café', false)
+      else {
+        const v = game?.getVisiting()
+        // at a real user's café the note truly lands in their book
+        const ownerId = v?.id.startsWith('user:') ? v.id.slice(5) : undefined
+        openDrawPad(uiEl, v?.name ?? 'this café', false, ownerId)
+      }
     },
     onDoor: (atHome) => {
       if (atHome) editor?.openDirectory() // stepping out? pick a place
@@ -277,6 +284,12 @@ const ui = buildUI({
   onRoomLight: (v) => lighting.setRoomLight(v),
   onFurnitureLight: (v) => lighting.setFurnitureLight(v),
   onTurn: () => game?.turnPlayer(),
+  onFriendUser: async (userId) => toast(await requestFriend(userId)),
+  onVisitUser: async (userId) => {
+    const cafe = await fetchCafeByUser(userId)
+    if (cafe && game) game.visit(cafe)
+    else toast('their café is closed right now ♪')
+  },
 })
 lighting.onBackground = (a, b) => ui.setBackground(a, b)
 if (game) {
@@ -332,6 +345,8 @@ if (game) {
   // a new look or name shows up for everyone right away
   store.on('avatar', () => updateState({}))
   store.on('info', () => updateState({}))
+  // the social loop: publish my café, watch for friend requests
+  initSocial({ onRequestCount: (n) => editor?.setRequestCount(n) })
 }
 
 // ---------- sound unlock + UI ticks ----------
@@ -372,6 +387,22 @@ if (!isShowcase) {
       setTimeout(() => {
         splash.classList.add('gone')
         setTimeout(() => splash.remove(), 900)
+        // a shared "come study at my café" link: walk over once signed in
+        const linkHandle = new URLSearchParams(location.search).get('cafe')
+        const followCafeLink = async () => {
+          if (!game || !linkHandle) return
+          for (let i = 0; i < 12; i++) {
+            const cafe = await fetchCafeByHandle(linkHandle)
+            if (cafe) {
+              game.visit(cafe)
+              toast(`welcome to ${cafe.name} ♪`)
+              return
+            }
+            if (getSupabase()) break // signed in and it's really not there
+            await new Promise((r) => setTimeout(r, 1500)) // still connecting
+          }
+          toast('that café isn’t open right now ♪')
+        }
         // first run: the setup wizard takes it from here
         if (game && needsOnboarding()) {
           hintsPaused = true
@@ -380,8 +411,10 @@ if (!isShowcase) {
             // the café is open: the communal clock starts mattering now
             document.querySelector('.clock-pill')?.classList.remove('hidden')
             if (store.save.info.guestbook) seedNotes()
-            runTour(document.getElementById('ui')!, () => {})
+            runTour(document.getElementById('ui')!, () => followCafeLink())
           })
+        } else {
+          followCafeLink()
         }
       }, 850)
     },

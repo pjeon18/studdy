@@ -3,6 +3,7 @@
 import * as store from './store'
 import { toast, heartBurst, esc } from './ui'
 import { sfx } from './sounds'
+import { leaveNote, listMyNotes, deleteNote, blockUser, type CloudNote } from './social'
 import type { GuestNote } from './types'
 
 const W = 220
@@ -20,8 +21,9 @@ export function closeGuestbook() {
   closeWin()
 }
 
-/** Draw pad — leave a note at `cafeName`. */
-export function openDrawPad(ui: HTMLElement, cafeName: string, atHome: boolean) {
+/** Draw pad — leave a note at `cafeName`. When `ownerId` is set the café
+ *  belongs to a real user and the note really lands in their book. */
+export function openDrawPad(ui: HTMLElement, cafeName: string, atHome: boolean, ownerId?: string) {
   closeWin()
   win = document.createElement('div')
   win.className = 'y2k-window gb-window'
@@ -96,22 +98,29 @@ export function openDrawPad(ui: HTMLElement, cafeName: string, atHome: boolean) 
     for (let y = 30; y < H; y += 28) g.fillRect(10, y, W - 20, 1)
     drew = false
   })
-  ;(win.querySelector('.gb-save') as HTMLButtonElement).addEventListener('click', (e) => {
+  ;(win.querySelector('.gb-save') as HTMLButtonElement).addEventListener('click', async (e) => {
     if (!drew) {
       toast('draw a little something first ♪')
       return
     }
     const art = cv.toDataURL('image/png')
+    const x = (e as MouseEvent).clientX
+    const y = (e as MouseEvent).clientY
     if (atHome) {
       // signing your own book
       store.addGuestNote({ id: `gn-${Date.now()}`, from: store.save.info.name || 'you', art, at: Date.now() })
       toast('you signed your own guestbook ♪')
+    } else if (ownerId) {
+      // a real café: the note goes to the owner's actual guestbook
+      const result = await leaveNote(ownerId, art)
+      toast(result === 'ok' ? `your note is in the guestbook at ${cafeName} ♪` : result)
+      if (result !== 'ok') return
     } else {
       toast(`your note is in the guestbook at ${cafeName} ♪`)
     }
     store.addXp(5)
     sfx.earn()
-    heartBurst((e as MouseEvent).clientX, (e as MouseEvent).clientY)
+    heartBurst(x, y)
     closeWin()
   })
 }
@@ -127,7 +136,7 @@ function ago(ts: number): string {
   return d === 1 ? 'yesterday' : `${d}d ago`
 }
 
-/** Gallery of the notes in YOUR guestbook. */
+/** Gallery of the notes in YOUR guestbook (local seeds + real cloud notes). */
 export function openGallery(ui: HTMLElement) {
   closeWin()
   win = document.createElement('div')
@@ -137,25 +146,60 @@ export function openGallery(ui: HTMLElement) {
   win.innerHTML = `
     <div class="y2k-titlebar"><span class="tb-dots"><i></i><i></i></span><span class="tb-title">your guestbook</span><button class="tb-close">×</button></div>
     <div class="y2k-body gb-body">
-      ${notes.length ? '' : '<p class="gb-lead">no notes yet — friends who visit can draw you something ♪</p>'}
+      <p class="gb-lead gb-empty ${notes.length ? 'hidden' : ''}">no notes yet — friends who visit can draw you something ♪</p>
       <div class="gb-gallery"></div>
       <div class="gb-tools"><button class="glossy-btn btn-mint ed-mini gb-sign">sign it yourself ♪</button></div>
     </div>
   `
   ui.appendChild(win)
-  win.querySelector('.tb-close')!.addEventListener('click', closeWin)
-  const gal = win.querySelector('.gb-gallery') as HTMLElement
-  for (const n of notes) {
-    // only ever render real image data — a tampered save can't smuggle anything else in
-    if (typeof n.art !== 'string' || !n.art.startsWith('data:image/')) continue
+  const thisWin = win
+  thisWin.querySelector('.tb-close')!.addEventListener('click', closeWin)
+  const gal = thisWin.querySelector('.gb-gallery') as HTMLElement
+
+  const addNote = (n: { from: string; art: string; at: number }, cloud?: CloudNote) => {
+    // only ever render real image data — a tampered save or row can't smuggle anything else in
+    if (typeof n.art !== 'string' || !n.art.startsWith('data:image/')) return
     const card = document.createElement('div')
     card.className = 'gb-note'
     const fresh = n.at > seenAt ? '<em class="new-pill">new</em>' : ''
     card.innerHTML = `<img alt="" /><span class="gb-meta"><i>${ago(n.at)}</i>${fresh} — ${esc(String(n.from))}</span>`
     ;(card.querySelector('img') as HTMLImageElement).src = n.art
+    if (cloud) {
+      // moderation lives right on the note: your book, your rules
+      const tools = document.createElement('span')
+      tools.className = 'gb-mod'
+      const rm = document.createElement('button')
+      rm.className = 'glossy-btn ed-mini'
+      rm.textContent = 'remove'
+      rm.addEventListener('click', async () => {
+        if (await deleteNote(cloud.id)) card.remove()
+      })
+      const blk = document.createElement('button')
+      blk.className = 'glossy-btn ed-mini'
+      blk.textContent = 'block'
+      blk.addEventListener('click', async () => {
+        if (!confirm(`block ${cloud.from}? their notes disappear and they can't sign or friend you again.`)) return
+        if (await blockUser(cloud.authorId)) {
+          toast(`${cloud.from} is blocked`)
+          gal.querySelectorAll(`[data-author="${cloud.authorId}"]`).forEach((el) => el.remove())
+        }
+      })
+      tools.append(rm, blk)
+      card.appendChild(tools)
+      card.dataset.author = cloud.authorId
+    }
     gal.appendChild(card)
   }
-  win.querySelector('.gb-sign')!.addEventListener('click', () => openDrawPad(ui, 'your café', true))
+
+  for (const n of notes) addNote(n)
+  // the real notes arrive async and slot in behind the local ones
+  listMyNotes().then((cloudNotes) => {
+    if (win !== thisWin) return // the window closed or reopened meanwhile
+    if (cloudNotes.length) thisWin.querySelector('.gb-empty')?.classList.add('hidden')
+    for (const c of cloudNotes) addNote(c, c)
+  })
+
+  thisWin.querySelector('.gb-sign')!.addEventListener('click', () => openDrawPad(ui, 'your café', true))
   store.markGuestbookSeen() // they've been looked at now
 }
 
