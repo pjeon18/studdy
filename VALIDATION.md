@@ -511,3 +511,23 @@ Acceptance criteria from `docs/BUILD_PLAN.md` §7, verified in the browser:
   Now grabbing the character clears the outline immediately, and any live
   outline copies its source's position/rotation every frame (and removes
   itself if the outlined object despawns) — no ghost flashes.
+
+## Phase 0 + Phase 1 (2026-09-01)
+
+- Floaters say "-12 beans" / "+6 beans" (plain text, no glyph).
+- **Phase 0 — shipped**: git repo `pjeon18/studdy`, GitHub Pages workflow
+  (BASE_PATH=/studdy/, SPA 404 copy, optional Supabase secrets injected at
+  build), Pages enabled in workflow mode. Live at
+  https://pjeon18.github.io/studdy/.
+- **Phase 1 — accounts + cloud saves (code complete)**: `src/cloud.ts` on
+  Supabase — anonymous sign-in on boot (guests get cloud saves instantly),
+  magic-link email upgrades the same account (`auth.updateUser` keeps the
+  anonymous user's save), debounced upsert of the whole SaveDoc into a
+  `saves` table (RLS: own row only, schema in `supabase/schema.sql`),
+  pull-on-boot adopts the remote save when it's newer (timestamp compare
+  via 'studdy-saved-at'). Settings window gained an account section
+  (guest/email state, magic-link input, sign out). Without env vars the
+  whole layer no-ops — verified the settings row reads "local only" and
+  nothing breaks. To activate: create a Supabase project, run the schema,
+  enable anonymous sign-ins (+ email), set VITE_SUPABASE_URL/ANON_KEY in
+  .env locally and as repo secrets for the deploy.
