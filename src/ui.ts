@@ -322,6 +322,11 @@ function openProfileCard(ui: HTMLElement, x: number, y: number, data: CardData =
   })
 }
 
+/** Escape user-controlled text before it goes anywhere near innerHTML. */
+export function esc(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+}
+
 /** The bottom-right slot holds ONE window (café controls / friends / chat).
  *  The tab that opened it turns pink while its window is up. */
 export function toggleRightWindow(win: HTMLElement, tab?: HTMLElement) {

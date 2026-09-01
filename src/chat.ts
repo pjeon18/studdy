@@ -1,7 +1,7 @@
 // Café chat: a shared room chat with the regulars, plus speech bubbles that
 // pop over heads. Your napkin status stays permanent; chat lines are fleeting.
 import * as store from './store'
-import { toggleRightWindow } from './ui'
+import { toggleRightWindow, esc } from './ui'
 import { sfx } from './sounds'
 import type { Game } from './game'
 import type * as THREE from 'three'
@@ -75,7 +75,7 @@ export function buildChat(ui: HTMLElement, game: Game, showBubble: ShowBubble) {
   function addLine(from: string, text: string, self = false) {
     const row = document.createElement('div')
     row.className = 'chat-row' + (self ? ' self' : '')
-    row.innerHTML = `<b>${from}</b> ${text}`
+    row.innerHTML = `<b>${esc(from)}</b> ${esc(text)}`
     log.appendChild(row)
     while (log.children.length > 60) log.removeChild(log.firstChild!)
     log.scrollTop = log.scrollHeight

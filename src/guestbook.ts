@@ -1,7 +1,7 @@
 // The guestbook: a hand-drawn note pad (visiting) and your received-notes
 // gallery (home). Notes are little PNG data URLs stored in the save.
 import * as store from './store'
-import { toast, heartBurst } from './ui'
+import { toast, heartBurst, esc } from './ui'
 import { sfx } from './sounds'
 import type { GuestNote } from './types'
 
@@ -146,10 +146,13 @@ export function openGallery(ui: HTMLElement) {
   win.querySelector('.tb-close')!.addEventListener('click', closeWin)
   const gal = win.querySelector('.gb-gallery') as HTMLElement
   for (const n of notes) {
+    // only ever render real image data — a tampered save can't smuggle anything else in
+    if (typeof n.art !== 'string' || !n.art.startsWith('data:image/')) continue
     const card = document.createElement('div')
     card.className = 'gb-note'
     const fresh = n.at > seenAt ? '<em class="new-pill">new</em>' : ''
-    card.innerHTML = `<img src="${n.art}" alt="" /><span class="gb-meta"><i>${ago(n.at)}</i>${fresh} — ${n.from}</span>`
+    card.innerHTML = `<img alt="" /><span class="gb-meta"><i>${ago(n.at)}</i>${fresh} — ${esc(String(n.from))}</span>`
+    ;(card.querySelector('img') as HTMLImageElement).src = n.art
     gal.appendChild(card)
   }
   win.querySelector('.gb-sign')!.addEventListener('click', () => openDrawPad(ui, 'your café', true))

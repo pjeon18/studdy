@@ -7,7 +7,7 @@ import { CATALOG, variantColor } from './items'
 import { FLOOR_CHOICES, WALL_CHOICES, DOOR_COLORS } from './shell'
 import { itemThumb } from './thumbs'
 import { DREAM_CAFES, FRIENDS, type DreamCafe, type FriendState } from './cafes'
-import { toast, drawPortrait, collapsible, toggleRightWindow } from './ui'
+import { toast, drawPortrait, collapsible, toggleRightWindow, esc } from './ui'
 import { beanImg } from './pixelui'
 import { sfx, setStation, STATIONS, isEnabled, setEnabled, setMusicVolume, getMusicVolume, type Station } from './sounds'
 import { capacityOfPlaced, type Game, type Session } from './game'
@@ -621,7 +621,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     const away = !!visitingCafe
     const name = away ? visitingCafe!.name : homeName()
     const open = away ? true : store.save.info.open
-    brandSub.innerHTML = `${name} · <b class="bs-open ${open ? 'is-open' : ''}">${open ? 'open' : 'closed'}</b><button class="bs-more">+</button>`
+    brandSub.innerHTML = `${esc(name)} · <b class="bs-open ${open ? 'is-open' : ''}">${open ? 'open' : 'closed'}</b><button class="bs-more">+</button>`
     brandSub.querySelector('.bs-more')!.addEventListener('click', () => {
       const wasHidden = infoWin.classList.contains('hidden')
       refreshInfo()

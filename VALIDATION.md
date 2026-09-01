@@ -531,3 +531,31 @@ Acceptance criteria from `docs/BUILD_PLAN.md` §7, verified in the browser:
   nothing breaks. To activate: create a Supabase project, run the schema,
   enable anonymous sign-ins (+ email), set VITE_SUPABASE_URL/ANON_KEY in
   .env locally and as repo secrets for the deploy.
+
+## Security audit & hardening (2026-09-01)
+
+Audited ahead of real accounts; findings fixed:
+- **XSS (fixed)** — user-controlled strings were reaching innerHTML in the
+  chat log, the marquee (café name), the guestbook signature, and the
+  onboarding recap. All now escaped via a shared esc() helper; guestbook
+  images are only rendered when they're genuine `data:image/*` payloads
+  (assigned via the DOM property, never interpolated).
+- **RLS tightened** — policies scoped `to authenticated`, explicit
+  `revoke ... from anon`, no delete path (rows die with the account via
+  cascade), and a 2MB check constraint on the save document.
+  Discovered live: new Supabase projects don't auto-grant table privileges,
+  so explicit `grant select, insert, update ... to authenticated` was added
+  (verified beforehand that BOTH roles got 42501 — locked-by-default).
+- **Abuse limits** — client won't sync pre-onboarding saves, caps uploads at
+  1.5MB, and validates the shape of any pulled document before adopting it;
+  anonymous sessions persist per browser (one MAU per device, not per
+  visit). Captcha (Turnstile) recommended before a viral push.
+- **Secrets** — only the publishable key ships (public by design); it's held
+  in .env (gitignored) and encrypted GitHub Actions secrets (set via the
+  sealed-box API). No service-role key exists anywhere in the project.
+- **Privacy** — display name + optional auth email are the only personal
+  data; email lives solely in Supabase Auth. No analytics or third-party
+  scripts. README gained a security-posture section.
+- Verified live against the real project: anonymous sign-in succeeds
+  ("guest · cloud save on ♪"); reads/writes correctly denied until the
+  grants patch (supabase/harden.sql) is run.

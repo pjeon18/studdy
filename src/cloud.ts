@@ -26,15 +26,23 @@ export function cloudUser(): { id: string; email?: string; anonymous: boolean } 
   return { id: session.user.id, email: session.user.email ?? undefined, anonymous: !session.user.email }
 }
 
+const MAX_DOC_BYTES = 1_500_000 // the DB enforces 2MB; stay well under it
+
 /** Queue a debounced upload of the current save. */
 function schedulePush() {
   if (!supa || !session) return
+  if (!store.save.info.name) return // nothing worth syncing before onboarding
   clearTimeout(pushT)
   pushT = setTimeout(pushNow, 2500)
 }
 
 async function pushNow() {
-  if (!supa || !session) return
+  if (!supa || !session || !store.save.info.name) return
+  const body = JSON.stringify(store.save)
+  if (body.length > MAX_DOC_BYTES) {
+    console.warn('[cloud] save too large to sync — trimming guestbook may help')
+    return
+  }
   const now = Date.now()
   lastPushedAt = now
   localStorage.setItem(SAVED_AT_KEY, String(now))
@@ -44,6 +52,19 @@ async function pushNow() {
     updated_at: new Date(now).toISOString(),
   })
   if (error) console.warn('[cloud] push failed:', error.message)
+}
+
+/** Minimal shape check so a corrupt cloud row can never brick the client. */
+function looksLikeSave(doc: unknown): boolean {
+  const d = doc as Record<string, unknown>
+  return (
+    !!d &&
+    typeof d === 'object' &&
+    d.v === 1 &&
+    typeof d.room === 'object' &&
+    Array.isArray(d.placed) &&
+    typeof d.info === 'object'
+  )
 }
 
 /** On sign-in: adopt the remote save if it's newer than the local one. */
@@ -57,6 +78,10 @@ async function pullOnce(): Promise<void> {
   if (!data) {
     // first time in the cloud: seed it with whatever we have locally
     if (store.save.info.name) pushNow()
+    return
+  }
+  if (!looksLikeSave(data.doc)) {
+    console.warn('[cloud] remote save failed validation — ignoring it')
     return
   }
   const remoteAt = new Date(data.updated_at).getTime()

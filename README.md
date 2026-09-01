@@ -46,6 +46,28 @@ saves, create a free [Supabase](https://supabase.com) project and:
 
 Without the env vars the cloud layer silently stays off — nothing breaks.
 
+## Security posture
+
+- **Row-level security everywhere**: the only table (`saves`) is readable and
+  writable strictly by its owner (`auth.uid() = user_id`), policies are
+  scoped to the `authenticated` role, signed-out access is explicitly
+  revoked, and rows can't be deleted through the API at all (they only go
+  away with the account). See `supabase/schema.sql` / `harden.sql`.
+- **The publishable key is public by design** — it grants nothing that RLS
+  doesn't allow. There are no service-role keys anywhere in this repo or
+  bundle.
+- **Data minimization**: the only personal data is a chosen display name and
+  (optionally) the sign-in email, which lives in Supabase Auth, never in
+  game tables. No analytics, no trackers, no third-party scripts.
+- **Abuse limits**: saves are size-capped at the database (2MB constraint)
+  and client (1.5MB); pre-onboarding saves never sync; anonymous sign-in
+  reuses the stored session so one browser = one account, and Supabase's
+  built-in per-IP rate limits apply. Enable captcha (Attack Protection →
+  Turnstile) before any viral push for extra MAU protection.
+- **XSS-hardened rendering**: every user-controlled string (names, chat,
+  guestbook signatures) is escaped before rendering, and guestbook images
+  are only accepted as `data:image/*` payloads.
+
 ## Docs
 
 - `docs/GAME_SPEC.md` — the design: scenarios, principles, aesthetic bible.

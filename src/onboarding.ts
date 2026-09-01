@@ -6,7 +6,7 @@ import { FLOOR_CHOICES, WALL_CHOICES } from './shell'
 import { itemThumb } from './thumbs'
 import { beanImg } from './pixelui'
 import { sfx } from './sounds'
-import { toast } from './ui'
+import { toast, esc } from './ui'
 import type { FloorStyle, WallStyle } from './types'
 import type { Game } from './game'
 
@@ -193,7 +193,7 @@ export function runOnboarding(ui: HTMLElement, game: Game, onDone: () => void) {
     title.textContent = 'you’re open ♪'
     body.innerHTML = `
       ${dots(4)}
-      <p class="ob-lead"><b>${username}'s café</b> is officially open.</p>
+      <p class="ob-lead"><b>${esc(username)}'s café</b> is officially open.</p>
       <ul class="ob-list">
         <li>your order lands at the door in a moment — click the box</li>
         <li>✎ edit café to place furniture, ◍ shop for more</li>
