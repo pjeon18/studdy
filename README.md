@@ -43,16 +43,28 @@ saves, create a free [Supabase](https://supabase.com) project and:
    For the deployed site, add the same two values as repo secrets
    (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) — the Pages workflow
    picks them up automatically.
+4. **The social loop** (visiting real cafés, `?cafe=<handle>` share links,
+   friend requests, the cross-user guestbook): run `supabase/phase3.sql`
+   in the SQL editor too. Until it runs, those features quietly stay off.
 
 Without the env vars the cloud layer silently stays off — nothing breaks.
 
 ## Security posture
 
-- **Row-level security everywhere**: the only table (`saves`) is readable and
-  writable strictly by its owner (`auth.uid() = user_id`), policies are
-  scoped to the `authenticated` role, signed-out access is explicitly
-  revoked, and rows can't be deleted through the API at all (they only go
-  away with the account). See `supabase/schema.sql` / `harden.sql`.
+- **Row-level security everywhere**: `saves` is readable and writable
+  strictly by its owner (`auth.uid() = user_id`); the social tables
+  (`profiles`, `cafes`, `friends`, `guest_notes`, `blocks`) expose only
+  what the loop needs — open cafés and profiles are readable in-game,
+  friendships only to their two parties, guest notes only to the book's
+  owner and the author. All policies are scoped to the `authenticated`
+  role, signed-out access is explicitly revoked, and friend-request
+  updates are column-scoped to `status` alone. See `supabase/*.sql`.
+- **Consent + moderation built into policy**: leaving a guestbook note
+  requires the café to be open with its guestbook enabled, the author to
+  be unblocked, the signed name to match their profile, and respects a
+  5-minute per-book cooldown — enforced in the database, not the client.
+  Owners can remove any note and block any author (which also sweeps
+  their notes and any friendship).
 - **The publishable key is public by design** — it grants nothing that RLS
   doesn't allow. There are no service-role keys anywhere in this repo or
   bundle.
