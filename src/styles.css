@@ -349,8 +349,19 @@ body::after {
 }
 .editor-window {
   left: 26px;
-  top: 96px;
+  top: 220px; /* clear of the Studdy logo + marquee */
   width: 240px;
+  /* pinned between the logo and the edit bar: the whole window may never
+     reach the bar — content scrolls inside instead */
+  max-height: calc(100vh - 220px - 112px);
+  display: flex;
+  flex-direction: column;
+}
+.editor-window .y2k-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .dbg-window { top: auto; bottom: 130px; width: 210px; }
 .ed-row {

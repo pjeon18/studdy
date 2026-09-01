@@ -559,3 +559,14 @@ Audited ahead of real accounts; findings fixed:
 - Verified live against the real project: anonymous sign-in succeeds
   ("guest · cloud save on ♪"); reads/writes correctly denied until the
   grants patch (supabase/harden.sql) is run.
+
+### Post-launch polish (2026-09-01)
+- Turnstile confirmed end-to-end in a real browser (incognito → "guest ·
+  cloud save on ♪"); captcha now protects all sign-ins.
+- Window count rows renamed to "windows left / windows right" (matching
+  what you see on screen).
+- Room/furnish panels pinned between the logo and the edit bar (top 220px,
+  max-height with internal scroll) — can't overlap either or crop off-screen
+  at any viewport height.
+- True white options: "snow" wall (#FFFFFF), "snow" white-plank floor, and
+  a flat "carpet-snow" pure-white floor.

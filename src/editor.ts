@@ -192,8 +192,8 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
       <div class="ed-row"><span>depth</span><span class="ed-ctrl"><button class="glossy-btn ed-mini" data-a="d-">−</button><b class="ed-val" data-v="d"></b><button class="glossy-btn ed-mini" data-a="d+">+</button></span></div>
       <div class="ed-row ed-row-swatch"><span>floor</span><span class="ed-ctrl ed-swatches" data-k="floor"></span></div>
       <div class="ed-row ed-row-swatch"><span>walls</span><span class="ed-ctrl ed-swatches" data-k="wall"></span></div>
-      <div class="ed-row"><span>windows ⌒</span><span class="ed-ctrl"><button class="glossy-btn ed-mini" data-a="wb-">−</button><b class="ed-val" data-v="wb"></b><button class="glossy-btn ed-mini" data-a="wb+">+</button></span></div>
-      <div class="ed-row"><span>windows ⌐</span><span class="ed-ctrl"><button class="glossy-btn ed-mini" data-a="wl-">−</button><b class="ed-val" data-v="wl"></b><button class="glossy-btn ed-mini" data-a="wl+">+</button></span></div>
+      <div class="ed-row"><span>windows left</span><span class="ed-ctrl"><button class="glossy-btn ed-mini" data-a="wl-">−</button><b class="ed-val" data-v="wl"></b><button class="glossy-btn ed-mini" data-a="wl+">+</button></span></div>
+      <div class="ed-row"><span>windows right</span><span class="ed-ctrl"><button class="glossy-btn ed-mini" data-a="wb-">−</button><b class="ed-val" data-v="wb"></b><button class="glossy-btn ed-mini" data-a="wb+">+</button></span></div>
       <div class="ed-row"><span>door</span><span class="ed-ctrl">
         <button class="glossy-btn ed-mini" data-a="door-">◀</button>
         <button class="glossy-btn ed-mini" data-a="doorwall">↔</button>

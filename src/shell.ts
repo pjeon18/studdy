@@ -28,8 +28,11 @@ const FLOORS: Record<string, FloorDef> = {
   'checker-mint': { a: '#FBF1DC', b: '#DDEEE3', seam: '#EFD2C4', line: '#DDEEE3', tile: 16, kind: 'checker' },
   'checker-sky': { a: '#FBF1DC', b: '#DAE8F4', seam: '#EFD2C4', line: '#DAE8F4', tile: 16, kind: 'checker' },
   'checker-ink': { a: '#EDE5D4', b: '#8A8A94', seam: '#DFD4C0', line: '#8A8A94', tile: 16, kind: 'checker' },
+  // pure white planks
+  snow: { a: '#FFFFFF', b: '#FBFBFB', seam: '#EDEDED', line: '#F6F6F6', tile: 32, kind: 'wood' },
   // carpets
   carpet: { a: '#BFD9BC', b: '#BFD9BC', seam: '#BFD9BC', line: '#BFD9BC', tile: 40, kind: 'carpet' },
+  'carpet-snow': { a: '#FFFFFF', b: '#FFFFFF', seam: '#FFFFFF', line: '#FFFFFF', tile: 40, kind: 'carpet' },
   'carpet-rose': { a: '#E8C7CE', b: '#E8C7CE', seam: '#E8C7CE', line: '#E8C7CE', tile: 40, kind: 'carpet' },
   'carpet-butter': { a: '#EFE0B0', b: '#EFE0B0', seam: '#EFE0B0', line: '#EFE0B0', tile: 40, kind: 'carpet' },
   'carpet-sky': { a: '#C3D8EA', b: '#C3D8EA', seam: '#C3D8EA', line: '#C3D8EA', tile: 40, kind: 'carpet' },
@@ -40,6 +43,7 @@ const FLOORS: Record<string, FloorDef> = {
 const WALLS: Record<string, { wall: string; wainscot: string; groove: string }> = {
   cream: { wall: PAL.wall, wainscot: PAL.wainscot, groove: PAL.groove },
   white: { wall: '#FDFCF6', wainscot: '#F1EEE4', groove: '#E4E0D2' },
+  snow: { wall: '#FFFFFF', wainscot: '#F3F3F3', groove: '#E7E7E7' },
   pink: { wall: '#FBE9F0', wainscot: '#F6D9E3', groove: '#EFCBD9' },
   mint: { wall: '#EAF4ED', wainscot: '#DBECE0', groove: '#CCE1D3' },
   sky: { wall: '#E8F1F8', wainscot: '#D9E7F2', groove: '#C9DAEA' },
