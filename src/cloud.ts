@@ -9,6 +9,52 @@ import { toast } from './ui'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (el: HTMLElement, opts: Record<string, unknown>) => string
+      remove: (id: string) => void
+    }
+  }
+}
+
+/** Solve a Cloudflare Turnstile challenge (invisible widget). Undefined when not configured. */
+async function getCaptchaToken(): Promise<string | undefined> {
+  if (!turnstileSiteKey) return undefined
+  if (!window.turnstile) {
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement('script')
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+      s.async = true
+      s.onload = () => resolve()
+      s.onerror = () => reject(new Error('turnstile load failed'))
+      document.head.appendChild(s)
+    }).catch(() => undefined)
+  }
+  if (!window.turnstile) return undefined
+  return new Promise((resolve) => {
+    const el = document.createElement('div')
+    el.style.cssText = 'position:fixed;left:12px;bottom:64px;z-index:200'
+    document.body.appendChild(el)
+    const done = (t?: string) => {
+      resolve(t)
+      setTimeout(() => el.remove(), 400)
+    }
+    try {
+      window.turnstile!.render(el, {
+        sitekey: turnstileSiteKey,
+        callback: (t: string) => done(t),
+        'error-callback': () => done(undefined),
+        'expired-callback': () => done(undefined),
+      })
+      setTimeout(() => done(undefined), 25000) // never hang sign-in on a stuck challenge
+    } catch {
+      done(undefined)
+    }
+  })
+}
 
 let supa: SupabaseClient | null = null
 let session: AuthSession | null = null
@@ -114,7 +160,8 @@ export async function initCloud() {
   const { data } = await supa.auth.getSession()
   session = data.session
   if (!session) {
-    const { data: anon, error } = await supa.auth.signInAnonymously()
+    const captchaToken = await getCaptchaToken()
+    const { data: anon, error } = await supa.auth.signInAnonymously({ options: { captchaToken } })
     if (error) {
       console.warn('[cloud] anonymous sign-in unavailable:', error.message)
       return
@@ -132,7 +179,8 @@ export async function linkEmail(email: string): Promise<string> {
     const { error } = await supa.auth.updateUser({ email })
     return error ? error.message : 'check your inbox to confirm ♪'
   }
-  const { error } = await supa.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href } })
+  const captchaToken = await getCaptchaToken()
+  const { error } = await supa.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href, captchaToken } })
   return error ? error.message : 'magic link sent — check your inbox ♪'
 }
 
