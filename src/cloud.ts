@@ -35,18 +35,32 @@ async function getCaptchaToken(): Promise<string | undefined> {
   }
   if (!window.turnstile) return undefined
   return new Promise((resolve) => {
+    // centered near the bottom, so a managed/interactive challenge is actually usable
     const el = document.createElement('div')
-    el.style.cssText = 'position:fixed;left:12px;bottom:64px;z-index:200'
+    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:200'
     document.body.appendChild(el)
+    let widgetId: string | undefined
+    let settled = false
     const done = (t?: string) => {
+      if (settled) return
+      settled = true
       resolve(t)
-      setTimeout(() => el.remove(), 400)
+      try {
+        if (widgetId) window.turnstile!.remove(widgetId)
+      } catch {
+        /* widget already gone */
+      }
+      el.remove()
     }
     try {
-      window.turnstile!.render(el, {
+      widgetId = window.turnstile!.render(el, {
         sitekey: turnstileSiteKey,
+        appearance: 'interaction-only', // stay invisible unless Cloudflare needs a click
         callback: (t: string) => done(t),
-        'error-callback': () => done(undefined),
+        'error-callback': (code: unknown) => {
+          console.warn('[cloud] turnstile error:', code)
+          done(undefined)
+        },
         'expired-callback': () => done(undefined),
       })
       setTimeout(() => done(undefined), 25000) // never hang sign-in on a stuck challenge
@@ -160,13 +174,17 @@ export async function initCloud() {
   const { data } = await supa.auth.getSession()
   session = data.session
   if (!session) {
-    const captchaToken = await getCaptchaToken()
-    const { data: anon, error } = await supa.auth.signInAnonymously({ options: { captchaToken } })
-    if (error) {
-      console.warn('[cloud] anonymous sign-in unavailable:', error.message)
-      return
+    // up to two attempts, each with a freshly solved challenge
+    for (let attempt = 0; attempt < 2 && !session; attempt++) {
+      const captchaToken = await getCaptchaToken()
+      const { data: anon, error } = await supa.auth.signInAnonymously({ options: { captchaToken } })
+      if (!error) {
+        session = anon.session
+        break
+      }
+      console.warn(`[cloud] anonymous sign-in attempt ${attempt + 1} failed:`, error.message)
     }
-    session = anon.session
+    if (!session) return // playing local-only this visit
   }
   await pullOnce()
 }
