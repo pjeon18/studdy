@@ -7,7 +7,7 @@
 // re-validated, length-capped, and colors must be #rrggbb before any of it
 // reaches the scene or the DOM.
 import type { RealtimeChannel } from '@supabase/supabase-js'
-import { getSupabase, cloudUser } from './cloud'
+import { getSupabase, cloudUser, cloudConfigured } from './cloud'
 import * as store from './store'
 
 export interface PatronState {
@@ -215,6 +215,7 @@ export function whereIs(userId: string): string | null {
 
 /** Boot the presence layer. Safe to call always; waits for the cloud session. */
 export function initPresence(h: Handlers) {
+  if (!cloudConfigured()) return // local-only build: nobody to be present with
   handlers = h
   // the cloud session arrives asynchronously (captcha etc.) — keep trying gently
   const iv = setInterval(() => {

@@ -6,7 +6,7 @@
 // Trust boundary: café documents, names, and notes fetched here are written
 // by OTHER USERS. Every field is re-validated and capped before it reaches
 // the renderer or the DOM (rendering also esc()'s all strings).
-import { getSupabase, cloudUser } from './cloud'
+import { getSupabase, cloudUser, cloudConfigured } from './cloud'
 import * as store from './store'
 import { CATALOG } from './items'
 import type { DreamCafe } from './cafes'
@@ -465,6 +465,7 @@ export async function blockUser(userId: string): Promise<boolean> {
 
 /** Start the social layer: publish my café on changes, watch for requests. */
 export function initSocial(handlers: { onRequestCount: (n: number) => void }) {
+  if (!cloudConfigured()) return // local-only build: no social loop
   onRequestCount = handlers.onRequestCount
   const events: store.StoreEvent[] = ['room', 'placed', 'info', 'avatar']
   for (const ev of events) store.on(ev, schedulePublish)
