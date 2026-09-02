@@ -234,8 +234,8 @@ function frame() {
   renderer.setScissor(0, 0, q, H)
   renderer.render(scene, cam)
   // right: the same frame, small + nearest-upscaled
-  const rw = Math.max(4, Math.floor(q / 2.4))
-  const rh = Math.max(4, Math.floor(H / 2.4))
+  const rw = Math.max(4, Math.floor(q / 1.6))
+  const rh = Math.max(4, Math.floor(H / 1.6))
   if (lowRT.width !== rw || lowRT.height !== rh) {
     lowRT.dispose()
     lowRT = new THREE.WebGLRenderTarget(rw, rh)
