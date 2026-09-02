@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>studdy · texture lab (dev only)</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #B8E4F6; font-family: monospace; }
+      #labels { position: fixed; inset: 0; display: grid; grid-template-columns: repeat(4, 1fr); pointer-events: none; }
+      #labels span { align-self: end; padding: 10px; font-size: 13px; font-weight: 700; color: #4A3226; background: rgba(255,247,232,.85); margin: 8px; border: 2px solid #4A3226; justify-self: start; }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <div id="labels">
+      <span>A · baseline (current)</span>
+      <span>B · grain albedo</span>
+      <span>C · toon ramp (3-step)</span>
+      <span>D · grain + ramp + lowres</span>
+    </div>
+    <script type="module" src="/src/lab/texture-lab.ts"></script>
+  </body>
+</html>
