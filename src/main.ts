@@ -23,7 +23,7 @@ import { unlock, sfx } from './sounds'
 import * as store from './store'
 import { CATALOG } from './items'
 import { needsOnboarding, runOnboarding } from './onboarding'
-import { initCloud, getSupabase } from './cloud'
+import { initCloud, getSupabase, cloudUser } from './cloud'
 import { initPresence, setPlace, updateState } from './presence'
 import { initSocial, fetchCafeByUser, fetchCafeByHandle, requestFriend } from './social'
 import { toast } from './ui'
@@ -286,6 +286,10 @@ const ui = buildUI({
   onTurn: () => game?.turnPlayer(),
   onFriendUser: async (userId) => toast(await requestFriend(userId)),
   onVisitUser: async (userId) => {
+    if (userId === cloudUser()?.id) {
+      game?.visit(null) // that's you — just head home
+      return
+    }
     const cafe = await fetchCafeByUser(userId)
     if (cafe && game) game.visit(cafe)
     else toast('their café is closed right now ♪')
@@ -394,6 +398,10 @@ if (!isShowcase) {
           for (let i = 0; i < 12; i++) {
             const cafe = await fetchCafeByHandle(linkHandle)
             if (cafe) {
+              if (cafe.id === `user:${cloudUser()?.id}`) {
+                toast('this is your own café link ♪')
+                return
+              }
               game.visit(cafe)
               toast(`welcome to ${cafe.name} ♪`)
               return
