@@ -35,6 +35,9 @@ export interface CardData {
   sweater?: string
   /** Set for real people — enables the real + friend / visit café actions. */
   userId?: string
+  level?: number
+  /** Lifetime beans earned (shown on your own card). */
+  lifetime?: number
 }
 
 const MOON_LATTE: CardData = {
@@ -265,6 +268,8 @@ function openProfileCard(ui: HTMLElement, x: number, y: number, data: CardData =
         <div class="pc-row"><span>working on</span><b class="pc-work"></b></div>
         <div class="pc-row"><span>headphones</span><b class="pc-hp"></b></div>
         <div class="pc-row"><span>streak</span><b class="pc-streak"></b></div>
+        ${data.level ? `<div class="pc-row"><span>level</span><b>lv ${data.level} ★</b></div>` : ''}
+        ${data.lifetime != null ? `<div class="pc-row"><span>lifetime beans</span><b>${data.lifetime.toLocaleString()} ◍</b></div>` : ''}
       </div>
       <div class="pc-actions">
         ${

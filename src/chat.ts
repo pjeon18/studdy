@@ -1,7 +1,7 @@
 // Café chat: a shared room chat with the regulars, plus speech bubbles that
 // pop over heads. Your napkin status stays permanent; chat lines are fleeting.
 import * as store from './store'
-import { toggleRightWindow, esc } from './ui'
+import { toggleRightWindow, esc, toast } from './ui'
 import { sendChat } from './presence'
 import { sfx } from './sounds'
 import type { Game } from './game'
@@ -86,12 +86,24 @@ export function buildChat(ui: HTMLElement, game: Game, showBubble: ShowBubble) {
     }
   }
 
+  // anti-spam: three quick messages are fine, then a 5s breath between sends
+  const sentAt: number[] = []
   input.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return
-    const text = input.value.trim()
+    const text = input.value.trim().slice(0, 80)
     if (!text) return
+    const now = Date.now()
+    const recent = sentAt.filter((t) => now - t < 12_000)
+    if (recent.length >= 3 && now - recent[recent.length - 1] < 5_000) {
+      toast('one sec — let the room breathe ♪')
+      return
+    }
+    recent.push(now)
+    sentAt.length = 0
+    sentAt.push(...recent)
     input.value = ''
     sfx.tick()
+    store.bumpCounter('chats')
     addLine(store.save.info.name || 'you', text, true)
     sendChat(text) // real people in the room hear you (no-op offline)
     // the fleeting bubble over your head — the napkin status is the permanent one

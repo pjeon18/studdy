@@ -8,6 +8,7 @@
 // the renderer or the DOM (rendering also esc()'s all strings).
 import { getSupabase, cloudUser, cloudConfigured } from './cloud'
 import * as store from './store'
+import { toast } from './ui'
 import { CATALOG } from './items'
 import type { DreamCafe } from './cafes'
 import type { Opening, PlacedItem, RoomDoc } from './types'
@@ -298,23 +299,26 @@ export async function fetchCafeByHandle(handle: string): Promise<DreamCafe | nul
 }
 
 /** Recently active open cafés (for the directory), newest first, minus me. */
-export async function listOpenCafes(): Promise<PersonRef[]> {
+export async function listOpenCafes(): Promise<(PersonRef & { minutes: number })[]> {
   const supa = getSupabase()
   const me = cloudUser()
   if (!supa || !me) return []
-  const { data, error } = await supa
-    .from('cafes')
-    .select('user_id')
-    .eq('open', true)
-    .neq('user_id', me.id)
-    .order('updated_at', { ascending: false })
-    .limit(12)
+  const q = (cols: string) =>
+    supa.from('cafes').select(cols).eq('open', true).neq('user_id', me.id).order('updated_at', { ascending: false }).limit(12)
+  let { data, error } = await q('user_id, study_minutes')
+  if (error) ({ data, error } = await q('user_id')) // pre-phase-4 schema: no stars yet
   if (error || !data) {
     missingSchema(error)
     return []
   }
-  const profiles = await fetchProfiles(data.map((r) => r.user_id))
-  return data.map((r) => profiles.get(r.user_id)).filter((p): p is PersonRef => !!p)
+  const rows = data as unknown as { user_id: string; study_minutes?: number }[]
+  const profiles = await fetchProfiles(rows.map((r) => r.user_id))
+  return rows
+    .map((r) => {
+      const p = profiles.get(r.user_id)
+      return p ? { ...p, minutes: typeof r.study_minutes === 'number' ? r.study_minutes : 0 } : null
+    })
+    .filter((p): p is PersonRef & { minutes: number } => !!p)
 }
 
 // ---------- friends ----------
@@ -461,6 +465,152 @@ export async function blockUser(userId: string): Promise<boolean> {
   return true
 }
 
+// ---------- leaderboard (xp lives on the public profile) ----------
+
+let xpT: ReturnType<typeof setTimeout> | undefined
+function schedulePushXp() {
+  clearTimeout(xpT)
+  xpT = setTimeout(async () => {
+    const supa = getSupabase()
+    const me = cloudUser()
+    if (!supa || !me || !myHandle) return
+    const { error } = await supa.from('profiles').update({ xp: store.save.xp }).eq('user_id', me.id)
+    if (error) missingSchema(error) // phase-4 column not there yet — fine
+  }, 4000)
+}
+
+export interface Leader extends PersonRef {
+  xp: number
+}
+
+/** Top studiers by xp, for the leaderboard. */
+export async function fetchLeaders(): Promise<Leader[]> {
+  const supa = getSupabase()
+  if (!supa) return []
+  const { data, error } = await supa
+    .from('profiles')
+    .select('user_id, handle, name, avatar, xp')
+    .order('xp', { ascending: false })
+    .limit(15)
+  if (error || !data) {
+    missingSchema(error)
+    return []
+  }
+  const profiles = await fetchProfiles(data.map((r) => r.user_id))
+  return data
+    .map((r) => {
+      const p = profiles.get(r.user_id)
+      return p ? { ...p, xp: typeof r.xp === 'number' ? Math.max(0, r.xp) : 0 } : null
+    })
+    .filter((p): p is Leader => !!p)
+}
+
+// ---------- host earnings: your café pays you for hosting focus ----------
+
+/** Café rating from lifetime hosted minutes: ★ → ★★★★★. */
+export function starsFor(minutes: number): number {
+  if (minutes >= 4000) return 5
+  if (minutes >= 1500) return 4
+  if (minutes >= 500) return 3
+  if (minutes >= 100) return 2
+  return 1
+}
+
+/** Tell a real café's owner you studied there (they earn beans for hosting). */
+export async function logStudy(ownerId: string, minutes: number) {
+  const supa = getSupabase()
+  const me = cloudUser()
+  if (!supa || !me || !UUID.test(ownerId) || ownerId === me.id) return
+  const m = Math.min(180, Math.max(1, Math.round(minutes)))
+  const { error } = await supa.from('study_log').insert({ cafe_owner: ownerId, visitor: me.id, minutes: m })
+  if (error) missingSchema(error) // rate-limited or pre-migration — quietly fine
+}
+
+/** On boot: collect what your café earned while you were away (1◍ / 10 hosted min). */
+async function collectHostEarnings() {
+  const supa = getSupabase()
+  const me = cloudUser()
+  if (!supa || !me) return
+  const c = store.save.goals.counters
+  const since = new Date(c.hostAt ?? 0).toISOString()
+  const { data, error } = await supa
+    .from('study_log')
+    .select('minutes, created_at')
+    .eq('cafe_owner', me.id)
+    .gt('created_at', since)
+    .limit(500)
+  if (error || !data) {
+    missingSchema(error)
+    return
+  }
+  if (!data.length) return
+  const hosted = data.reduce((s, r) => s + (typeof r.minutes === 'number' ? Math.min(180, Math.max(0, r.minutes)) : 0), 0)
+  const total = (c.hostCarry ?? 0) + hosted
+  const beans = Math.floor(total / 10)
+  store.setCounter('hostCarry', total % 10)
+  store.setCounter('hostTotal', (c.hostTotal ?? 0) + hosted)
+  store.setCounter('hostAt', Math.max(...data.map((r) => new Date(r.created_at).getTime())))
+  if (beans > 0) {
+    store.addBeans(beans)
+    toast(`your café hosted ${hosted} focused minutes — +${beans} beans ♪`)
+  }
+  // keep the public star rating current (owner-writable column)
+  await supa.from('cafes').update({ study_minutes: store.save.goals.counters.hostTotal ?? 0 }).eq('user_id', me.id)
+}
+
+// ---------- bean gifts: a little generosity loop ----------
+
+const GIFTED_KEY = 'studdy-gifted'
+
+/** First tap on a person each day sends them a bean (3/day total, server-enforced). */
+export async function giftBean(userId: string): Promise<boolean> {
+  const supa = getSupabase()
+  const me = cloudUser()
+  if (!supa || !me || !UUID.test(userId) || userId === me.id) return false
+  const today = new Date().toDateString()
+  let given: Record<string, string> = {}
+  try {
+    given = JSON.parse(localStorage.getItem(GIFTED_KEY) ?? '{}')
+  } catch {
+    /* fresh book */
+  }
+  if (given[userId] === today) return false
+  if (Object.values(given).filter((d) => d === today).length >= 3) return false
+  const { error } = await supa.from('gifts').insert({ sender: me.id, recipient: userId, beans: 1 })
+  if (error) {
+    missingSchema(error)
+    return false // out of gifts today / blocked / pre-migration
+  }
+  given[userId] = today
+  localStorage.setItem(GIFTED_KEY, JSON.stringify(given))
+  store.addXp(5) // generosity pays
+  return true
+}
+
+/** On boot: pick up beans friends left for you. */
+async function collectGifts() {
+  const supa = getSupabase()
+  const me = cloudUser()
+  if (!supa || !me) return
+  const c = store.save.goals.counters
+  const since = new Date(c.giftAt ?? 0).toISOString()
+  const { data, error } = await supa
+    .from('gifts')
+    .select('sender, created_at')
+    .eq('recipient', me.id)
+    .gt('created_at', since)
+    .limit(100)
+  if (error || !data || !data.length) {
+    missingSchema(error)
+    return
+  }
+  store.setCounter('giftAt', Math.max(...data.map((r) => new Date(r.created_at).getTime())))
+  store.addBeans(data.length)
+  const senders = await fetchProfiles([...new Set(data.map((r) => r.sender))])
+  const names = [...senders.values()].map((p) => p.name).slice(0, 3).join(', ')
+  toast(`${names || 'friends'} sent you ${data.length} bean${data.length > 1 ? 's' : ''} ♪`)
+}
+
 // ---------- boot ----------
 
 /** Start the social layer: publish my café on changes, watch for requests. */
@@ -470,10 +620,15 @@ export function initSocial(handlers: { onRequestCount: (n: number) => void }) {
   const events: store.StoreEvent[] = ['room', 'placed', 'info', 'avatar']
   for (const ev of events) store.on(ev, schedulePublish)
   // the cloud session arrives asynchronously — publish + poll once it's up
+  store.on('xp', schedulePushXp)
   const iv = setInterval(() => {
     if (!getSupabase()) return
     clearInterval(iv)
-    publishNow()
+    publishNow().then(() => {
+      schedulePushXp()
+      collectHostEarnings()
+      collectGifts()
+    })
     pollRequests()
     setInterval(pollRequests, 60_000)
   }, 2000)

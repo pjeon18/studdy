@@ -91,6 +91,28 @@ export interface CafeInfo {
   guestbook: boolean
 }
 
+/** A self-set goal — honor system, claimable the NEXT day (no impulse-claiming). */
+export interface CustomGoal {
+  id: string
+  text: string
+  /** Self-chosen bean reward (small, capped in the UI). */
+  beans: number
+  cadence: 'daily' | 'weekly'
+  createdAt: number
+  /** When you marked it done (honor system). */
+  doneAt?: number
+  /** Last claim — daily/weekly goals re-arm after claiming. */
+  claimedAt?: number
+}
+
+export interface GoalsState {
+  custom: CustomGoal[]
+  /** Built-in mission ids already claimed. */
+  missionsClaimed: string[]
+  /** Feature-usage counters missions read (visits, focusMin, chats, …). */
+  counters: Record<string, number>
+}
+
 /** A hand-drawn note left in a café's guestbook. */
 export interface GuestNote {
   id: string
@@ -117,4 +139,7 @@ export interface SaveDoc {
   newItems: string[]
   /** Lifetime experience — earned by studying and playing. */
   xp: number
+  /** Every bean ever earned (spending doesn't reduce it). */
+  lifetimeBeans: number
+  goals: GoalsState
 }

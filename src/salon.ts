@@ -61,6 +61,7 @@ export function openSalon(ui: HTMLElement, kind: 'barber' | 'boutique' | 'all') 
       b.addEventListener('click', () => {
         sfx.tick()
         store.setAvatar({ [k]: v } as never)
+        store.bumpCounter('salon')
         paint()
       })
       ctrl.appendChild(b)

@@ -12,7 +12,7 @@ import { beanImg } from './pixelui'
 import { sfx, setStation, STATIONS, isEnabled, setEnabled, setMusicVolume, getMusicVolume, type Station } from './sounds'
 import { capacityOfPlaced, type Game, type Session } from './game'
 import { cloudConfigured, cloudUser, linkEmail, signOut, isDev } from './cloud'
-import { fetchCafeByUser, listOpenCafes, listFriends, acceptRequest, declineRequest, getMyHandle, shareUrl } from './social'
+import { fetchCafeByUser, listOpenCafes, listFriends, acceptRequest, declineRequest, getMyHandle, shareUrl, fetchLeaders, starsFor } from './social'
 import { whereIs } from './presence'
 import type { FloorStyle, WallStyle } from './types'
 
@@ -517,6 +517,8 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     <div class="y2k-titlebar"><span class="tb-dots"><i></i><i></i></span><span class="tb-title">café directory</span></div>
     <div class="y2k-body">
       <div class="dir-real hidden"><div class="fr-head">real cafés ♪</div><div class="dir-real-list"></div></div>
+      <div class="dir-leaders hidden"><div class="fr-head">top studiers ♪</div><div class="dir-leaders-list"></div></div>
+      <div class="fr-head">dream cafés ♪</div>
       <div class="dir-list"></div>
       <div class="ed-note">every café is a real study spot ♪</div>
     </div>
@@ -534,6 +536,16 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   const dirRealList = dirWin.querySelector('.dir-real-list') as HTMLElement
   const dirList = dirWin.querySelector('.dir-list') as HTMLElement
 
+  const dirLeaders = dirWin.querySelector('.dir-leaders') as HTMLElement
+  const dirLeadersList = dirWin.querySelector('.dir-leaders-list') as HTMLElement
+
+  const visitRealCafe = async (userId: string) => {
+    dirWin.classList.add('hidden')
+    const cafe = await fetchCafeByUser(userId)
+    if (cafe) game.visit(cafe)
+    else toast('their café is closed right now ♪')
+  }
+
   /** Other people's open cafés, freshest first. */
   const renderRealCafes = async () => {
     const cafes = await listOpenCafes()
@@ -544,21 +556,37 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
       row.className = 'dir-row'
       row.innerHTML = `
         <span class="dir-name">${esc(c.name)}'s café<i>@${esc(c.handle)}</i></span>
-        <span class="dir-meta"><i class="dir-live hidden" data-cafe="user:${esc(c.userId)}"></i></span>
+        <span class="dir-meta"><b class="dir-stars">${'★'.repeat(starsFor(c.minutes))}</b><i class="dir-live hidden" data-cafe="user:${esc(c.userId)}"></i></span>
       `
       const go = document.createElement('button')
       go.className = 'glossy-btn ed-mini'
       go.textContent = 'visit'
-      go.addEventListener('click', async () => {
-        dirWin.classList.add('hidden')
-        const cafe = await fetchCafeByUser(c.userId)
-        if (cafe) game.visit(cafe)
-        else toast('their café is closed right now ♪')
-      })
+      go.addEventListener('click', () => visitRealCafe(c.userId))
       row.appendChild(go)
       dirRealList.appendChild(row)
     }
     paintLiveCounts()
+  }
+
+  /** The xp leaderboard — see the cafés of the most devoted studiers. */
+  const renderLeaders = async () => {
+    const leaders = await fetchLeaders()
+    dirLeaders.classList.toggle('hidden', !leaders.length)
+    dirLeadersList.textContent = ''
+    leaders.forEach((l, i) => {
+      const row = document.createElement('div')
+      row.className = 'dir-row'
+      row.innerHTML = `
+        <span class="dir-name">${i + 1}. ${esc(l.name)}<i>@${esc(l.handle)}</i></span>
+        <span class="dir-meta"><b>lv ${store.levelInfo(l.xp).level}</b><i>${l.xp.toLocaleString()} xp</i></span>
+      `
+      const go = document.createElement('button')
+      go.className = 'glossy-btn ed-mini'
+      go.textContent = 'visit'
+      go.addEventListener('click', () => visitRealCafe(l.userId))
+      row.appendChild(go)
+      dirLeadersList.appendChild(row)
+    })
   }
   for (const cafe of DREAM_CAFES) {
     const row = document.createElement('div')
@@ -591,7 +619,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
         <button class="glossy-btn ed-mini hud-hp active">♪ headphones</button>
         <button class="glossy-btn ed-mini hud-leave">stand up</button>
       </div>
-      <div class="ed-note">earning 1 ◍ per focused minute ♪</div>
+      <div class="ed-note hud-rate">earning 1 ◍ per focused minute ♪</div>
     </div>
   `
   ui.appendChild(hudWin)
@@ -964,6 +992,9 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
         hudStart = s.startedAt
         hudNapkin.value = s.napkin
         hudHp.classList.toggle('active', s.headphones)
+        const rate = store.focusRate()
+        ;(hudWin.querySelector('.hud-rate') as HTMLElement).textContent =
+          `earning ${rate % 1 ? rate.toFixed(1) : rate} ◍ per focused minute ♪`
         fmtHud()
       }
     },
@@ -971,6 +1002,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
       setMode('view')
       showLeft(dirWin)
       renderRealCafes()
+      renderLeaders()
     },
     setLiveCounts(counts) {
       lastCounts = counts

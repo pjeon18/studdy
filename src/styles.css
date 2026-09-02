@@ -67,7 +67,7 @@ body::after {
 }
 
 #stage, #stage canvas { position: fixed; inset: 0; display: block; }
-#ui { position: fixed; inset: 0; pointer-events: none; }
+#ui { position: fixed; inset: 0; pointer-events: none; z-index: 20; } /* windows sit above name tags */
 #ui > * { pointer-events: auto; }
 
 /* ---------- pixel primitives ---------- */
@@ -241,7 +241,7 @@ body::after {
 .cafe-tab {
   position: fixed;
   right: 10px;
-  top: 252px;
+  top: 278px;
   z-index: 30;
   padding-right: 12px;
 }
@@ -537,7 +537,7 @@ textarea.px-input { resize: none; line-height: 1.35; }
 .friends-tab {
   position: fixed;
   right: 10px;
-  top: 298px;
+  top: 324px;
   z-index: 30;
   padding-right: 12px;
 }
@@ -644,10 +644,53 @@ textarea.px-input { resize: none; line-height: 1.35; }
 .chat-tab {
   position: fixed;
   right: 10px;
-  top: 344px;
+  top: 370px;
   z-index: 30;
   padding-right: 12px;
 }
+.goals-tab {
+  position: fixed;
+  right: 10px;
+  top: 232px;
+  z-index: 30;
+  padding-right: 12px;
+}
+.clubs-tab {
+  position: fixed;
+  right: 10px;
+  top: 416px;
+  z-index: 30;
+  padding-right: 12px;
+}
+.rslot-tab.locked { opacity: 0.55; filter: grayscale(0.7); }
+
+/* goals window */
+.goals-window { width: 340px; }
+.goals-body { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; overflow-x: hidden; }
+.gl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.gl-row.gl-done { opacity: 0.55; }
+.gl-label { flex: 1; min-width: 0; line-height: 1.2; }
+.gl-label i { display: block; font-style: normal; font-size: 11px; color: var(--ink-2); }
+.gl-reward { font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.gl-actions { display: flex; align-items: center; gap: 4px; }
+.gl-wait { font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.gl-del { padding: 0 5px 3px; }
+.gl-add { display: flex; flex-direction: column; gap: 5px; padding-top: 2px; }
+.gl-add .px-input { width: 100%; }
+.gl-add-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.gl-opts { display: flex; gap: 3px; }
+.gl-opt { font-size: 12px; padding: 0 5px 2px; }
+.gl-opt.active {
+  border-image-source: var(--px-btn-active);
+  color: #fff;
+  text-shadow: 1.5px 1.5px 0 rgba(178, 74, 110, 0.9);
+}
+
 .rslot-tab.rtab-active {
   border-image-source: var(--px-btn-active);
   color: #fff;
@@ -978,6 +1021,13 @@ textarea.px-input { resize: none; line-height: 1.35; }
   height: 5px;
   background: #2E9E5B;
   margin-right: 4px;
+  vertical-align: 1px;
+}
+.name-tag::after {
+  content: attr(data-lv);
+  font-size: 9px;
+  opacity: 0.85;
+  margin-left: 5px;
   vertical-align: 1px;
 }
 

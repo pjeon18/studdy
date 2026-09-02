@@ -38,6 +38,8 @@ export interface GameCallbacks {
   onLampsChanged: () => void
   onVisit: (cafe: DreamCafe | null) => void
   onSession: (session: Session | null) => void
+  /** A focus session ended: minutes earned, and where (place id or null=home). */
+  onFocused?: (minutes: number, placeId: string | null) => void
   onPatronCard: (data: CardData, x: number, y: number) => void
   /** Damage-indicator style floater over the player ("-12 ◍" / "+8 ◍"). */
   onFloat: (text: string, kind: 'spend' | 'earn') => void
@@ -311,7 +313,16 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
   // ---------- ghost placement ----------
   const validMat = new THREE.MeshBasicMaterial({ color: '#7CC9AC', transparent: true, opacity: 0.55, depthWrite: false })
   const invalidMat = new THREE.MeshBasicMaterial({ color: '#FF6A8E', transparent: true, opacity: 0.5, depthWrite: false })
-  let placing: { itemId: string; variant?: string; rot: 0 | 1 | 2 | 3; ghost: THREE.Group; editUid?: string } | null = null
+  let placing: {
+    itemId: string
+    variant?: string
+    rot: 0 | 1 | 2 | 3
+    ghost: THREE.Group
+    editUid?: string
+    /** While set, the ghost stays put until the pointer wanders this far from here. */
+    holdFrom?: { x: number; z: number } | null
+    startedAt?: number
+  } | null = null
   let ghostAt: { x: number; z: number; ok: boolean; on?: string; reason?: 'floor' } | null = null
   const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
   const hitPoint = new THREE.Vector3()
@@ -333,10 +344,17 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     const ghost = makeGhost(itemId, variant)
     ghost.visible = false
     group.add(ghost)
-    placing = { itemId, variant, rot: rot as 0 | 1 | 2 | 3, ghost, editUid }
+    placing = { itemId, variant, rot: rot as 0 | 1 | 2 | 3, ghost, editUid, startedAt: Date.now() }
     if (editUid) {
       const li = live.get(editUid)
       if (li) li.built.group.visible = false
+      // the ghost starts ON the furniture (not wherever the mouse happens
+      // to be) and stays there until the pointer actually drags away
+      const p = store.save.placed.find((q) => q.uid === editUid)
+      if (p) {
+        placing.holdFrom = null // armed: first pointer sample fills it in
+        updateGhost(p.x, p.z, p.on)
+      }
     }
     setSelection(null)
     cb.onPlacingChange(itemId)
@@ -479,6 +497,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     real?: boolean
     uid?: string
     nameColor?: string
+    level?: number
   }
 
   interface Occupant {
@@ -612,6 +631,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
         real: true,
         uid: p.uid || undefined,
         nameColor: p.nameColor,
+        level: p.level,
       })
       occ.sitSince = p.since
       remoteSeat.set(p.key, seatKey)
@@ -732,13 +752,14 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     } else {
       standAtDoor()
     }
-    // focused time is the currency: 1 bean per focused minute (+10 xp each)
+    // focused time is the currency: level-scaled beans (+10 xp per minute)
     if (minutes > 0) {
-      store.addBeans(minutes)
-      store.addXp(minutes * 10)
-      cb.onFloat(`+${minutes} beans`, 'earn')
+      const beans = store.earnFocus(minutes)
+      cb.onFloat(`+${beans} beans`, 'earn')
       sfx.earn()
-      toast(`+${minutes} beans for focused time ♪`)
+      toast(`+${beans} beans for focused time ♪`)
+      // the café you studied at hosted you — its owner earns too
+      cb.onFocused?.(minutes, visiting?.id ?? null)
     }
   }
 
@@ -767,12 +788,15 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       focusedSince: session?.startedAt ?? standing?.since ?? Date.now(),
       hair: store.save.avatar.hair,
       sweater: store.save.avatar.sweater,
+      level: store.levelInfo().level,
+      lifetime: store.save.lifetimeBeans,
     }
   }
 
   function cardFor(key: string): CardData {
     const occ = occupants.get(key)
-    if (occ?.persona) return { ...occ.persona, focusedSince: occ.sitSince, userId: occ.persona.uid }
+    if (occ?.persona)
+      return { ...occ.persona, focusedSince: occ.sitSince, userId: occ.persona.uid, level: occ.persona.real ? occ.persona.level : undefined }
     return playerCard()
   }
 
@@ -797,6 +821,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     if (cafe) {
       spawnSims()
       store.addXp(3) // getting out there
+      store.bumpCounter('visits')
     }
     standAtDoor() // you walk in through the door
     cb.onVisit(cafe)
@@ -989,6 +1014,15 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       return
     }
     hoverInfo = null
+    // a just-picked-up piece stays where it was until the pointer really moves
+    if (placing.holdFrom !== undefined && ray.ray.intersectPlane(floorPlane, hitPoint)) {
+      if (placing.holdFrom === null) {
+        placing.holdFrom = { x: hitPoint.x, z: hitPoint.z }
+        return
+      }
+      if (Math.hypot(hitPoint.x - placing.holdFrom.x, hitPoint.z - placing.holdFrom.z) < 1.1) return
+      placing.holdFrom = undefined
+    }
     if (CATALOG[placing.itemId].placement === 'surface') {
       // aim at the actual tabletops, not the floor plane (parallax!)
       const surfGroups = [...live.values()]
@@ -1007,8 +1041,44 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     if (ray.ray.intersectPlane(floorPlane, hitPoint)) updateGhost(hitPoint.x, hitPoint.z)
   }
 
+  function turnPlayerNow() {
+    if (!standing || dragState) return
+    standing.group.rotation.y = (Math.round(standing.group.rotation.y / (Math.PI / 2)) + 1) * (Math.PI / 2)
+    sfx.tick()
+  }
+
+  // quick-click gestures: double = pick up / turn around, triple = rotate
+  let gesture: { key: string; count: number; at: number } | null = null
+  function clicksOn(key: string): number {
+    const now = Date.now()
+    if (gesture && gesture.key === key && now - gesture.at < 420) gesture.count++
+    else gesture = { key, count: 1, at: now }
+    gesture.at = now
+    return gesture.count
+  }
+
+  function rotateInPlace(uid: string) {
+    const p = store.save.placed.find((q) => q.uid === uid)
+    if (!p) return
+    const next = ((p.rot + 1) % 4) as 0 | 1 | 2 | 3
+    if (validAt(p.x, p.z, p.itemId, next, p.uid).ok) {
+      store.rotateItem(uid)
+      sfx.tick()
+    } else {
+      toast('no room to turn it here ♪')
+    }
+  }
+
   function sceneClick(ray: THREE.Raycaster, screenX = 0, screenY = 0): boolean {
     if (placing) {
+      // a third quick click right after double-click-to-move = rotate in place
+      if (placing.editUid && Date.now() - (placing.startedAt ?? 0) < 450) {
+        const uid = placing.editUid
+        cancelPlacing()
+        rotateInPlace(uid)
+        setSelection(uid)
+        return true
+      }
       if (!confirmPlace() && ghostAt?.reason === 'floor')
         toast('leave an empty floor tile for every seat ♪')
       return true // handled either way
@@ -1042,6 +1112,12 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
         let o: THREE.Object3D | null = occHits[0].object
         while (o && !o.userData.occKey && !o.userData.player) o = o.parent
         if (o) {
+          // double-tapping yourself spins you around instead of re-opening the card
+          const isSelf = o.userData.player || !occupants.get(o.userData.occKey)?.persona
+          if (isSelf && clicksOn('self') >= 2) {
+            turnPlayerNow()
+            return true
+          }
           cb.onPatronCard(o.userData.player ? playerCard() : cardFor(o.userData.occKey), screenX, screenY)
           return true
         }
@@ -1090,12 +1166,31 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       let o: THREE.Object3D | null = hits[0].object
       while (o && !o.userData.uid) o = o.parent
       if (o) {
-        setSelection(o.userData.uid)
+        const uid = o.userData.uid as string
+        // click = select · double-click = pick up to move (triple then rotates)
+        if (clicksOn(uid) >= 2) {
+          const p = store.save.placed.find((q) => q.uid === uid)
+          if (p) {
+            startPlacing(p.itemId, p.variant, uid)
+            return true
+          }
+        }
+        setSelection(uid)
         return true
       }
     }
     setSelection(null)
     return false
+  }
+
+  /** Furnish mode: the furniture uid under the pointer (for press-and-hold). */
+  function furnitureUnderRay(ray: THREE.Raycaster): string | null {
+    if (mode !== 'furnish' || placing) return null
+    const hits = ray.intersectObjects([...live.values()].map((li) => li.built.group), true)
+    if (!hits.length) return null
+    let o: THREE.Object3D | null = hits[0].object
+    while (o && !o.userData.uid) o = o.parent
+    return (o?.userData.uid as string) ?? null
   }
 
   // ---------- store wiring ----------
@@ -1243,27 +1338,42 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       dragState = null
       return true
     },
-    /** Quarter-turn the standing player (R key / the card's turn button). */
-    turnPlayer() {
-      if (!standing || dragState) return
-      standing.group.rotation.y = (Math.round(standing.group.rotation.y / (Math.PI / 2)) + 1) * (Math.PI / 2)
-      sfx.tick()
-    },
+    /** Quarter-turn the standing player (R key / the card's turn button / double-tap). */
+    turnPlayer: turnPlayerNow,
     getHoverInfo: () => hoverInfo,
+    furnitureUnderRay,
+    /** Press-and-hold in furnish mode: tuck the piece back into inventory. */
+    storeByUid(uid: string) {
+      const p = store.save.placed.find((q) => q.uid === uid)
+      if (!p) return
+      if (selection === uid) setSelection(null)
+      store.storeItem(uid)
+      sfx.pop()
+      toast(`${CATALOG[p.itemId].name} tucked back into your inventory ♪`)
+    },
     /** Floating name tags: one per person in the room (minecraft-style). */
-    getNameTags(): { name: string; x: number; y: number; z: number; color: string; real: boolean }[] {
-      const out: { name: string; x: number; y: number; z: number; color: string; real: boolean }[] = []
+    getNameTags(): { name: string; x: number; y: number; z: number; color: string; real: boolean; lv?: number }[] {
+      const out: { name: string; x: number; y: number; z: number; color: string; real: boolean; lv?: number }[] = []
       const myName = store.save.info.name || 'you'
       const myColor = store.save.avatar.nameColor ?? '#FFFFFF'
+      const myLv = store.levelInfo().level
       for (const o of occupants.values()) {
         const p = o.group.position
         if (o.persona)
-          out.push({ name: o.persona.name, x: p.x, y: p.y + 1.78, z: p.z, color: o.persona.nameColor ?? '#FFFFFF', real: !!o.persona.real })
-        else out.push({ name: myName, x: p.x, y: p.y + 1.78, z: p.z, color: myColor, real: false })
+          out.push({
+            name: o.persona.name,
+            x: p.x,
+            y: p.y + 1.78,
+            z: p.z,
+            color: o.persona.nameColor ?? '#FFFFFF',
+            real: !!o.persona.real,
+            lv: o.persona.real ? o.persona.level : undefined, // sims keep their mystery
+          })
+        else out.push({ name: myName, x: p.x, y: p.y + 1.78, z: p.z, color: myColor, real: false, lv: myLv })
       }
       if (standing) {
         const p = standing.group.position
-        out.push({ name: myName, x: p.x, y: p.y + 2.42, z: p.z, color: myColor, real: false })
+        out.push({ name: myName, x: p.x, y: p.y + 2.42, z: p.z, color: myColor, real: false, lv: myLv })
       }
       return out
     },

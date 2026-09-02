@@ -118,6 +118,7 @@ export function openDrawPad(ui: HTMLElement, cafeName: string, atHome: boolean, 
     } else {
       toast(`your note is in the guestbook at ${cafeName} ♪`)
     }
+    if (!atHome) store.bumpCounter('notes')
     store.addXp(5)
     sfx.earn()
     heartBurst(x, y)

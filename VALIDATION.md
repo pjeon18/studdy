@@ -649,3 +649,32 @@ Audited ahead of real accounts; findings fixed:
 - Still pending: two-account cross-user E2E (friend request → accept,
   guest note → gallery → remove/block) — needs a second real browser
   profile; captcha prevents scripting a second account.
+
+### Big feature round (2026-09-01): gestures · goals · leaderboard · host economy
+- **Edit gestures** — move-ghost now starts ON the piece and holds until the
+  pointer drags 1.1u away (verified: ghost sat on the stool's own tile);
+  double-click furniture picks it up, a quick third click rotates in place
+  (verified rot 0→1, same tile), press-and-hold (550ms) tucks it into
+  inventory; double-tapping yourself turns you; camera double-click zoom
+  reset now yields to gestures.
+- **Goals window** (✔ tab, top of the right stack): 9 built-in missions
+  (friend tiers 100/250/500◍ — sharing is the growth loop — visits, salon,
+  guestbook, chat, focus minutes) reading live counters + the friend list;
+  self-set daily/weekly goals with picked bean rewards (5–50◍), honor
+  system, claimable only the NEXT calendar day (verified: "did it ♪" →
+  "claim tomorrow ♪"). Clubs tab present but locked (level 10, later).
+- **Level economy** — beans/min = 1 + 0.1·(level−1), capped at 2.5; HUD
+  shows the live rate (verified "earning 1.1 ◍" at lv 2). Lifetime beans
+  tracked; self card shows level + lifetime (verified 11,131 ◍).
+- **Name tags** show "lv N" beside real players' names (presence carries
+  level, clamped 1–999 inbound).
+- **Chat anti-spam** — 80-char cap; 3 quick messages fine, then 5s gap
+  (verified: 5 rapid sends → 3 delivered).
+- **phase4.sql** (TO RUN): profiles.xp (leaderboard), cafes.study_minutes
+  (star ratings ★–★★★★★ at 100/500/1500/4000 hosted minutes), study_log
+  (visitors log sessions; owners earn 1◍ per 10 hosted minutes, collected
+  on boot; append-only, 1 row / 8 min / visitor), gifts (1 bean each, 3 a
+  day, 1 per person per day, block-aware — first tap on someone each day
+  gifts automatically, +5xp to the giver). Directory gains "top studiers ♪"
+  (xp leaderboard with visit buttons) + star ratings on real cafés — all
+  quietly dormant until the migration runs.

@@ -180,7 +180,7 @@ export async function initCloud() {
   supa = createClient(url!, anonKey!)
 
   // mirror every store change up (debounced)
-  const events: store.StoreEvent[] = ['room', 'placed', 'inventory', 'beans', 'packages', 'info', 'guestbook', 'avatar', 'newitems', 'xp']
+  const events: store.StoreEvent[] = ['room', 'placed', 'inventory', 'beans', 'packages', 'info', 'guestbook', 'avatar', 'newitems', 'xp', 'goals']
   for (const ev of events) store.on(ev, schedulePush)
   window.addEventListener('beforeunload', () => {
     if (Date.now() - lastPushedAt > 3000) pushNow()

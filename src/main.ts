@@ -25,12 +25,13 @@ import { CATALOG } from './items'
 import { needsOnboarding, runOnboarding } from './onboarding'
 import { initCloud, getSupabase, cloudUser } from './cloud'
 import { initPresence, setPlace, updateState } from './presence'
-import { initSocial, fetchCafeByUser, fetchCafeByHandle, requestFriend } from './social'
+import { initSocial, fetchCafeByUser, fetchCafeByHandle, requestFriend, logStudy, giftBean } from './social'
 import { toast } from './ui'
 import { openGallery, openDrawPad, seedNotes, closeGuestbook } from './guestbook'
 import { openSalon, closeSalon } from './salon'
 import { closeProfileCard } from './ui'
 import { buildChat } from './chat'
+import { buildGoals } from './goals'
 import { runTour } from './tour'
 
 installPixelUI()
@@ -137,12 +138,24 @@ const pointers = new Map<number, { x: number; y: number }>()
 let dragDist = 0
 let pinchDist = 0
 let charDrag = false // carrying the avatar: suppress camera panning
+// press-and-hold on furniture (furnish mode) tucks it back into inventory
+let holdT: ReturnType<typeof setTimeout> | undefined
+let holdFired = false
 renderer.domElement.addEventListener('pointerdown', (e) => {
   if (game) {
     setRayFromEvent(e)
     if (game.startDrag(raycaster)) {
       charDrag = true
       return // the pointer is holding the character, not the camera
+    }
+    holdFired = false
+    const uid = game.furnitureUnderRay(raycaster)
+    if (uid) {
+      clearTimeout(holdT)
+      holdT = setTimeout(() => {
+        holdFired = true
+        game!.storeByUid(uid)
+      }, 550)
     }
   }
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -169,6 +182,7 @@ window.addEventListener('pointermove', (e) => {
     const dx = e.clientX - p.x
     const dy = e.clientY - p.y
     dragDist += Math.abs(dx) + Math.abs(dy)
+    if (dragDist > 8) clearTimeout(holdT) // moving = panning, not holding
     const wpp = (camera.right - camera.left) / window.innerWidth
     camera.updateMatrixWorld()
     camRight.setFromMatrixColumn(camera.matrixWorld, 0)
@@ -190,6 +204,7 @@ window.addEventListener('pointermove', (e) => {
   p.y = e.clientY
 })
 window.addEventListener('pointerup', (e) => {
+  clearTimeout(holdT)
   if (charDrag && game) {
     // released off-canvas: still set the character down
     charDrag = false
@@ -197,8 +212,17 @@ window.addEventListener('pointerup', (e) => {
   }
   pointers.delete(e.pointerId)
 })
-window.addEventListener('pointercancel', (e) => pointers.delete(e.pointerId))
-renderer.domElement.addEventListener('dblclick', () => {
+window.addEventListener('pointercancel', (e) => {
+  clearTimeout(holdT)
+  pointers.delete(e.pointerId)
+})
+renderer.domElement.addEventListener('dblclick', (e) => {
+  // double-click resets the camera only when it wasn't a gesture on something
+  if (game) {
+    setRayFromEvent(e)
+    const onThing = game.furnitureUnderRay(raycaster) || game.getHoverInfo()
+    if (onThing) return
+  }
   setExtent(extentW, extentD)
   zoomF = 1
   fitFrustum()
@@ -239,7 +263,19 @@ if (isShowcase) {
           : { seatKey: null, napkin: '' }
       )
     },
-    onPatronCard: (data, x, y) => ui.openProfileCard(x, y, data),
+    onFocused: (minutes, placeId) => {
+      // studying at a real person's café pays its owner for hosting you
+      if (placeId?.startsWith('user:')) logStudy(placeId.slice(5), minutes)
+    },
+    onPatronCard: (data, x, y) => {
+      ui.openProfileCard(x, y, data)
+      // your first hello to a real person each day leaves them a bean
+      if (data.userId) {
+        giftBean(data.userId).then((sent) => {
+          if (sent) toast(`you left ${data.name} a little bean ♪ +5xp`)
+        })
+      }
+    },
     onGuestbook: (atHome) => {
       const uiEl = document.getElementById('ui')!
       if (atHome) openGallery(uiEl)
@@ -328,6 +364,7 @@ function showBubble(anchor: () => THREE.Vector3 | null, text: string, ms = 4500)
 }
 
 const chat = game ? buildChat(document.getElementById('ui')!, game, showBubble) : null
+if (game) buildGoals(document.getElementById('ui')!)
 
 // accounts + cloud saves (no-op unless Supabase env vars are set)
 if (game) {
@@ -471,6 +508,11 @@ function setRayFromEvent(e: { clientX: number; clientY: number }) {
   raycaster.setFromCamera(pointer, camera)
 }
 renderer.domElement.addEventListener('pointerup', (e) => {
+  clearTimeout(holdT)
+  if (holdFired) {
+    holdFired = false
+    return // the hold already tucked the piece away — don't also click
+  }
   if (charDrag && game) {
     charDrag = false
     setRayFromEvent(e)
@@ -629,6 +671,8 @@ function updateNameTags() {
     if (el.textContent !== t.name) el.textContent = t.name
     el.style.color = t.color
     el.classList.toggle('real', t.real)
+    const lv = t.lv ? `lv ${t.lv}` : ''
+    if (el.dataset.lv !== lv) el.dataset.lv = lv
     hoverV.set(t.x, t.y, t.z).project(camera)
     el.style.left = `${(hoverV.x * 0.5 + 0.5) * window.innerWidth}px`
     el.style.top = `${(-hoverV.y * 0.5 + 0.5) * window.innerHeight}px`

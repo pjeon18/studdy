@@ -1,10 +1,10 @@
 // One tiny observable store: the SaveDoc plus mutations, persisted to localStorage.
 import { CATALOG } from './items'
-import type { Avatar, CafeInfo, GuestNote, Opening, PlacedItem, RoomDoc, SaveDoc } from './types'
+import type { Avatar, CafeInfo, CustomGoal, GuestNote, Opening, PlacedItem, RoomDoc, SaveDoc } from './types'
 
 const KEY = 'studdy-save-v1'
 
-export type StoreEvent = 'room' | 'placed' | 'inventory' | 'beans' | 'packages' | 'info' | 'guestbook' | 'avatar' | 'newitems' | 'xp'
+export type StoreEvent = 'room' | 'placed' | 'inventory' | 'beans' | 'packages' | 'info' | 'guestbook' | 'avatar' | 'newitems' | 'xp' | 'goals'
 
 const DEFAULT_AVATAR: Avatar = {
   skin: '#FFDCBD',
@@ -55,6 +55,8 @@ function starter(): SaveDoc {
     avatar: { ...DEFAULT_AVATAR },
     newItems: [],
     xp: 0,
+    lifetimeBeans: 60,
+    goals: { custom: [], missionsClaimed: [], counters: {} },
   }
 }
 
@@ -75,6 +77,11 @@ function load(): SaveDoc {
         doc.avatar ??= { ...DEFAULT_AVATAR }
         doc.newItems ??= []
         doc.xp ??= 0
+        doc.lifetimeBeans ??= doc.beans // best guess for saves from before we tracked it
+        doc.goals ??= { custom: [], missionsClaimed: [], counters: {} }
+        doc.goals.custom ??= []
+        doc.goals.missionsClaimed ??= []
+        doc.goals.counters ??= {}
         for (const k of Object.keys(CATALOG)) doc.inventory[k] ??= 0
         return doc
       }
@@ -361,7 +368,88 @@ export function grantBeans(n = 100) {
 export function addBeans(n: number) {
   if (n <= 0) return
   save.beans += n
+  save.lifetimeBeans += n
   commit('beans')
+}
+
+// ---------- focused-time economy ----------
+/** Beans per focused minute — grows gently with level, hard-capped at 2.5. */
+export function focusRate(): number {
+  const { level } = levelInfo()
+  return Math.min(2.5, 1 + 0.1 * (level - 1))
+}
+
+/** Credit a focus session: level-scaled beans + xp + the mission counter. */
+export function earnFocus(minutes: number): number {
+  if (minutes <= 0) return 0
+  const beans = Math.max(minutes, Math.round(minutes * focusRate()))
+  addBeans(beans)
+  addXp(minutes * 10)
+  bumpCounter('focusMin', minutes)
+  return beans
+}
+
+// ---------- goals & missions ----------
+export function bumpCounter(key: string, n = 1) {
+  save.goals.counters[key] = (save.goals.counters[key] ?? 0) + n
+  commit('goals')
+}
+
+export function setCounter(key: string, v: number) {
+  save.goals.counters[key] = v
+  commit('goals')
+}
+
+export function addGoal(text: string, beans: number, cadence: 'daily' | 'weekly') {
+  if (!text.trim()) return
+  save.goals.custom.push({
+    id: `g-${Date.now()}-${Math.floor(Math.random() * 1e4)}`,
+    text: text.trim().slice(0, 60),
+    beans: Math.max(1, Math.min(50, Math.round(beans))),
+    cadence,
+    createdAt: Date.now(),
+  })
+  commit('goals')
+}
+
+export function removeGoal(id: string) {
+  save.goals.custom = save.goals.custom.filter((g) => g.id !== id)
+  commit('goals')
+}
+
+export function markGoalDone(id: string) {
+  const g = save.goals.custom.find((q) => q.id === id)
+  if (!g || g.doneAt) return
+  g.doneAt = Date.now()
+  commit('goals')
+}
+
+/** Local calendar day stamp — claims unlock the day AFTER you mark done. */
+const dayOf = (ts: number) => new Date(ts).toDateString()
+
+export function goalClaimable(g: CustomGoal): boolean {
+  return !!g.doneAt && dayOf(g.doneAt) !== dayOf(Date.now())
+}
+
+/** Claim a done goal (next day only). Daily/weekly goals re-arm. */
+export function claimGoal(id: string): number {
+  const g = save.goals.custom.find((q) => q.id === id)
+  if (!g || !goalClaimable(g)) return 0
+  addBeans(g.beans)
+  addXp(5)
+  g.claimedAt = Date.now()
+  g.doneAt = undefined // it re-arms for the next day / week
+  commit('goals')
+  return g.beans
+}
+
+export function claimMission(id: string, beans: number, xp: number): boolean {
+  if (save.goals.missionsClaimed.includes(id)) return false
+  save.goals.missionsClaimed.push(id)
+  addBeans(beans)
+  addXp(xp)
+  commit('goals')
+  return true
 }
 
 export function setInfo(patch: Partial<CafeInfo>) {
