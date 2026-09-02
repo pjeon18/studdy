@@ -27,6 +27,8 @@ interface ModeState {
   lampIntensity: number
   pendantIntensity: number
   washIntensity: number
+  /** How much of the pendant light bleeds into the flat ambient floor. */
+  ambientScale: number
   screenGlow: number
   sky: string
   roof: string
@@ -47,6 +49,7 @@ const STATES: Record<Mode, ModeState> = {
     lampIntensity: 1.6,
     pendantIntensity: 9,
     washIntensity: 0.4,
+    ambientScale: 1,
     screenGlow: 0.6,
     sky: '#BCD6EC',
     roof: '#97AECB',
@@ -63,8 +66,9 @@ const STATES: Record<Mode, ModeState> = {
     dirIntensity: 0.28,
     fillIntensity: 0.1,
     lampIntensity: 13,
-    pendantIntensity: 30,
-    washIntensity: 0.55,
+    pendantIntensity: 8,
+    washIntensity: 0.32,
+    ambientScale: 0.42,
     screenGlow: 1.8,
     sky: '#8B87B8',
     roof: '#6C6C99',
@@ -81,8 +85,9 @@ const STATES: Record<Mode, ModeState> = {
     dirIntensity: 0.1,
     fillIntensity: 0.05,
     lampIntensity: 22,
-    pendantIntensity: 40,
-    washIntensity: 0.65,
+    pendantIntensity: 5.5,
+    washIntensity: 0.24,
+    ambientScale: 0.3,
     screenGlow: 5,
     sky: '#313857',
     roof: '#252A45',
@@ -109,7 +114,7 @@ export class Lighting {
   t = 1
   // room lights boot fully "on" (slider max); the slider dims from there.
   // 3 = the bright new max; the old max (2) sits at the slider's two-thirds mark.
-  private roomMult = 3
+  private roomMult = 2.1
   private furnMult = 1
   private lastE = 1
   private scene: THREE.Scene
@@ -237,6 +242,7 @@ export class Lighting {
       lampIntensity: ln(a.lampIntensity, b.lampIntensity),
       pendantIntensity: ln(a.pendantIntensity, b.pendantIntensity),
       washIntensity: ln(a.washIntensity, b.washIntensity),
+      ambientScale: ln(a.ambientScale, b.ambientScale),
       screenGlow: ln(a.screenGlow, b.screenGlow),
       sky: lc(a.sky, b.sky),
       roof: lc(a.roof, b.roof),
@@ -269,7 +275,7 @@ export class Lighting {
     this.lampLights.forEach((l) => (l.intensity = lampVal))
     const pend = ln(a.pendantIntensity, b.pendantIntensity) * this.roomMult
     this.pendants.forEach((l) => (l.intensity = pend * this.pendantNorm))
-    this.roomAmbient.intensity = pend * 0.07
+    this.roomAmbient.intensity = pend * 0.07 * ln(a.ambientScale, b.ambientScale)
     this.wash.intensity = ln(a.washIntensity, b.washIntensity) * this.roomMult
     this.screenGlow.intensity = ln(a.screenGlow, b.screenGlow)
     lc(a.sky, b.sky, this.world.skyMat.color)

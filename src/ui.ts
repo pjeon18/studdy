@@ -203,8 +203,8 @@ export function buildUI(cb: UICallbacks) {
   })
   modeWin.querySelectorAll<HTMLInputElement>('.lights-slider').forEach((slider) => {
     slider.addEventListener('input', () => {
-      // room maxes brighter (×3) — the old max now sits at the ⅔ mark
-      if (slider.dataset.light === 'room') cb.onRoomLight((Number(slider.value) / 100) * 3)
+      // the room maxes at ×2.1 — the sweet spot Paul picked lands at 100%
+      if (slider.dataset.light === 'room') cb.onRoomLight((Number(slider.value) / 100) * 2.1)
       else if (slider.dataset.light === 'furniture') cb.onFurnitureLight(Number(slider.value) / 50)
     })
   })

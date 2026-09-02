@@ -735,3 +735,12 @@ Audited ahead of real accounts; findings fixed:
   total brightness normalized by light count, plus a small room-scaled
   ambient — corners now match the room center (first pass was washed out;
   re-tuned norm 2/count + ambient 0.07·pend).
+
+### Lighting re-tune (2026-09-02)
+- Room slider max lowered to ×2.1 (the old 70% is the new 100%).
+- Dusk/night interiors actually dim now: under the even rig the per-mode
+  pendant values (old 30/40, tuned for steep falloff) read as bright as
+  day — rebalanced to day 9 / dusk 8 / night 5.5 with mode-scaled ambient
+  (1 / 0.42 / 0.3) and softer washes. Verified all three modes: day =
+  the approved warm look, dusk peachy and softer, night dim and cozy —
+  all corner-to-corner even.
