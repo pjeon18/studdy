@@ -12,6 +12,8 @@ export interface BuiltItem {
   update?: (dt: number, t: number) => void
   /** For floor lamps: the warm light the lighting rig drives. */
   lampLight?: THREE.PointLight
+  /** For fairy-light items: bulb materials the lighting rig twinkles. */
+  fairyMats?: THREE.MeshBasicMaterial[]
 }
 
 type Builder = (variant: string) => BuiltItem
@@ -274,9 +276,10 @@ function floorLamp(variant: string): BuiltItem {
   group.add(vox(g))
   group.add(cone(0, 0, 58, 16, 12, 5, shadeMat(shadeHex(variant || 'butter'))))
   group.add(puck(0, 0, 56.6, 1.4, 7.6, PAL.butter))
-  // soft wide pool, not a hot disc on the nearest wall
+  // soft wide pool, not a hot disc on the nearest wall — and low enough
+  // that a mid-room lamp clearly lights the floor around itself
   const lampLight = new THREE.PointLight('#FFC276', 1.2, 18, 1.4)
-  lampLight.position.set(0, 62 * VOX, 0)
+  lampLight.position.set(0, 38 * VOX, 0)
   group.add(lampLight)
   return { group, lampLight }
 }
@@ -1050,6 +1053,236 @@ function salonMirror(): BuiltItem {
   return { group, update }
 }
 
+// ---------- kitchen ----------
+function fridge(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.roundedBox(-14, 0, -11, 14, 76, 11, PAL.cream)
+  g.fill(-14, 0, -11, 14, 3, 11, PAL.chromeDark) // kick plate
+  for (let x = -13; x <= 13; x++) g.set(x, 52, 12, PAL.chromeDark) // freezer seam
+  g.fill(10, 30, 12, 11, 48, 12, PAL.chrome) // door handle (tall)
+  g.fill(10, 56, 12, 11, 68, 12, PAL.chrome) // freezer handle
+  g.set(-8, 40, 12, PAL.pinkDeep) // fridge magnets
+  g.set(-5, 36, 12, PAL.mintDeep)
+  g.set(-9, 30, 12, PAL.butter)
+  g.set(2, 74, 6, '#FFFFFF') // flat-face shine on top
+  g.set(3, 74, 5, '#FFFFFF')
+  group.add(vox(g))
+  return { group }
+}
+
+function stove(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.roundedBox(-14, 0, -11, 14, 40, 11, PAL.cream)
+  g.fill(-14, 0, -11, 14, 2, 11, PAL.chromeDark)
+  g.fill(-14, 40, -11, 14, 42, 11, PAL.marble) // cooktop deck
+  // oven door: window band + handle
+  g.fill(-10, 10, 12, 10, 24, 12, PAL.chromeDark)
+  g.fill(-8, 12, 12, 8, 22, 12, '#4A3A30') // dark glass
+  g.fill(-10, 30, 12, 10, 32, 12, PAL.chrome) // handle bar
+  for (const dx of [-9, -3, 3, 9]) g.set(dx, 36, 12, PAL.pinkDeep) // dials
+  group.add(vox(g))
+  // burners: flat dark pucks on the deck
+  for (const [bx, bz] of [[-7, -5], [7, -5], [-7, 5], [7, 5]] as const)
+    group.add(puck(bx, bz, 42, 1.2, 4.6, '#4A3A30'))
+  return { group }
+}
+
+function kitchenSink(variant: string): BuiltItem {
+  const [light] = WOODS[variant] ?? WOODS.honey
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.roundedBox(-20, 0, -12, 20, 38, 12, PAL.counterFace)
+  for (let x = -18; x <= 18; x += 4) g.fill(x, 4, 13, x + 1, 34, 13, light) // cabinet slats
+  g.fill(-22, 38, -13, 21, 42, 13, PAL.marble) // top
+  g.carve(-12, 40, -8, 11, 42, 7) // basin
+  g.fill(-12, 39, -8, 11, 40, 7, PAL.chrome) // basin floor
+  // faucet: a little chrome arch
+  g.fill(-1, 42, -11, 1, 52, -9, PAL.chrome)
+  g.fill(-1, 50, -9, 1, 52, -4, PAL.chrome)
+  g.set(3, 43, -10, PAL.pinkDeep) // hot tap
+  g.set(-4, 43, -10, PAL.mintDeep) // cold tap
+  group.add(vox(g))
+  return { group }
+}
+
+function kettle(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.cylinder(0, 0, 0, 10, 5.4, PAL.butter)
+  g.carveCylinder(0, 0, 8, 10, 3.4)
+  g.disc(0, 0, 10, 3, '#EEC06A') // lid
+  g.set(0, 12, 0, PAL.honeyDark) // knob
+  g.fill(5, 4, -1, 8, 6, 1, PAL.butter) // spout
+  g.fill(-8, 4, -1, -6, 9, 1, PAL.honeyDark) // handle
+  group.add(vox(g))
+  const steam = makeSteam(0, 12, 0, 0.7)
+  group.add(steam.group)
+  return { group, update: steam.update }
+}
+
+function toaster(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.roundedBox(-8, 0, -5, 8, 10, 5, PAL.chrome)
+  g.fill(-8, 0, -5, 8, 1, 5, PAL.chromeDark)
+  g.carve(-5, 9, -3, -2, 10, 2) // slots
+  g.carve(2, 9, -3, 5, 10, 2)
+  g.fill(-4, 8, -2, -3, 14, 1, '#E8C287') // toast peeking out
+  g.fill(3, 8, -2, 4, 12, 1, '#E8C287')
+  g.fill(9, 4, -1, 10, 6, 1, PAL.pinkDeep) // lever
+  g.set(6, 8, 6, '#FFFFFF') // flat-face shine
+  group.add(vox(g))
+  return { group }
+}
+
+// ---------- library ----------
+function bookCart(variant: string): BuiltItem {
+  const [, dark] = WOODS[variant] ?? WOODS.honey
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  const spines = [PAL.pinkDeep, PAL.mintDeep, PAL.butter, PAL.lavenderDeep, '#7FA9CE']
+  for (const sy of [4, 20]) {
+    g.fill(-12, sy, -7, 12, sy + 1, 7, dark) // shelf
+    let x = -11
+    let i = sy // vary the run per shelf
+    while (x < 10) {
+      const w = 2 + ((x + 100 + sy) % 3)
+      g.fill(x, sy + 2, -5, x + w, sy + 2 + 10 + ((x + sy) % 4), 5, spines[i % spines.length])
+      x += w + 2
+      i++
+    }
+  }
+  g.fill(-12, 4, -7, -11, 34, 7, dark) // side panels
+  g.fill(11, 4, -7, 12, 34, 7, dark)
+  g.fill(-12, 33, -7, 12, 34, 7, dark) // push rail
+  group.add(vox(g))
+  for (const [wx, wz] of [[-9, -5], [9, -5], [-9, 5], [9, 5]] as const)
+    group.add(puck(wx, wz, 0, 4, 2.2, '#4A3A30')) // wheels
+  return { group }
+}
+
+function globe(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.cylinder(0, 0, 0, 2, 5, PAL.honeyDark) // base
+  g.fill(-1, 2, -1, 0, 14, 0, PAL.honeyDark) // stem
+  g.ellipsoid(0, 22, 0, 8, 8, 8, '#8FC1E8') // oceans
+  // little continents
+  g.fill(-6, 20, 4, -2, 25, 7, '#9CCB88')
+  g.fill(2, 24, -7, 6, 28, -3, '#9CCB88')
+  g.fill(0, 16, 3, 4, 19, 6, '#9CCB88')
+  g.fill(-2, 28, -2, 1, 29, 1, '#FFFFFF') // ice cap
+  group.add(vox(g))
+  return { group }
+}
+
+// ---------- plants ----------
+function palmPlant(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.cylinder(0, 0, 0, 8, 6, '#C97B5A') // pot
+  g.carveCylinder(0, 0, 6, 8, 4.8)
+  g.disc(0, 0, 6, 4.8, '#8A5A3C') // soil
+  g.fill(-1, 6, -1, 0, 26, 0, '#A8794F') // trunk
+  g.set(0, 14, 0, '#96683F')
+  // fronds: four arcs reaching out and drooping
+  const leaf = '#6FA96B'
+  const dark = '#5C9158'
+  g.fill(0, 26, 0, 10, 28, 1, leaf)
+  g.fill(8, 24, 0, 13, 26, 1, dark)
+  g.fill(-10, 26, -1, 0, 28, 0, leaf)
+  g.fill(-13, 24, -1, -8, 26, 0, dark)
+  g.fill(-1, 26, 0, 0, 28, 10, dark)
+  g.fill(-1, 24, 8, 0, 26, 13, leaf)
+  g.fill(-1, 26, -10, 0, 28, 0, leaf)
+  g.fill(-1, 24, -13, 0, 26, -8, dark)
+  g.fill(-2, 28, -2, 1, 30, 1, leaf) // crown
+  group.add(vox(g))
+  return { group }
+}
+
+function flowerTrio(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  const pots: [number, string, string][] = [
+    [-8, '#C97B5A', PAL.pinkDeep],
+    [0, '#B5A0E4', PAL.butter],
+    [8, '#C97B5A', '#FFFFFF'],
+  ]
+  for (const [px, potC, bloom] of pots) {
+    g.fill(px - 2, 0, -2, px + 2, 4, 2, potC)
+    g.carve(px - 1, 3, -1, px + 1, 4, 1)
+    g.set(px, 4, 0, '#6FA96B') // stem
+    g.set(px, 5, 0, '#6FA96B')
+    g.set(px, 6, 0, bloom) // bloom
+    g.set(px - 1, 6, 0, bloom)
+    g.set(px + 1, 6, 0, bloom)
+    g.set(px, 7, 0, bloom)
+  }
+  group.add(vox(g))
+  return { group }
+}
+
+function ivyPot(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.cylinder(0, 0, 0, 6, 4.6, PAL.trim)
+  g.carveCylinder(0, 0, 4, 6, 3.6)
+  g.disc(0, 0, 4, 3.6, '#8A5A3C')
+  const leaf = '#7FB069'
+  const dark = '#659455'
+  // vines spilling over the rim and trailing down the sides
+  g.fill(4, 2, -1, 6, 6, 1, leaf)
+  g.fill(6, 0, 0, 8, 3, 1, dark)
+  g.fill(-6, 3, -1, -4, 6, 1, dark)
+  g.fill(-8, 0, 0, -6, 4, 1, leaf)
+  g.fill(-1, 4, 4, 1, 6, 6, leaf)
+  g.fill(0, 1, 6, 1, 4, 8, dark)
+  g.fill(-1, 5, -6, 1, 6, -4, dark)
+  g.fill(-2, 6, -2, 2, 7, 2, leaf) // top tuft
+  group.add(vox(g))
+  return { group }
+}
+
+// ---------- fairy lights ----------
+function fairyGarland(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.fill(-19, 0, -1, -18, 44, 0, PAL.honeyDark) // poles
+  g.fill(18, 0, -1, 19, 44, 0, PAL.honeyDark)
+  g.disc(-18, 0, 0, 4, PAL.honeyDark) // feet
+  g.disc(18, 0, 0, 4, PAL.honeyDark)
+  group.add(vox(g))
+  // the drooping string with twinkling bulbs (the lighting rig drives them)
+  const fairyMats: THREE.MeshBasicMaterial[] = []
+  const wireMat = new THREE.MeshLambertMaterial({ color: '#6B5844' })
+  const N = 9
+  for (let i = 0; i <= N; i++) {
+    const t = i / N
+    const x = (t - 0.5) * 36 * VOX
+    const y = (44 - Math.sin(t * Math.PI) * 9) * VOX
+    if (i < N) {
+      const t2 = (i + 1) / N
+      const x2 = (t2 - 0.5) * 36 * VOX
+      const y2 = (44 - Math.sin(t2 * Math.PI) * 9) * VOX
+      const seg = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(x2 - x, y2 - y), 0.04, 0.04), wireMat)
+      seg.position.set((x + x2) / 2, (y + y2) / 2, 0)
+      seg.rotation.z = Math.atan2(y2 - y, x2 - x)
+      group.add(seg)
+    }
+    if (i > 0 && i < N) {
+      const m = new THREE.MeshBasicMaterial({ color: '#FFDE8A' })
+      const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.14, 0.11), m)
+      bulb.position.set(x, y - 0.12, 0)
+      group.add(bulb)
+      fairyMats.push(m)
+    }
+  }
+  return { group, fairyMats }
+}
+
 // ---------- the catalog ----------
 export const CATALOG: Record<string, Entry> = {
   stool: {
@@ -1145,6 +1378,41 @@ export const CATALOG: Record<string, Entry> = {
   },
   'coat-rack': {
     id: 'coat-rack', price: 9, name: 'coat rack', category: 'decor', footprint: [1, 1], placement: 'floor', build: coatRack,
+  },
+  fridge: {
+    id: 'fridge', price: 60, name: 'fridge', category: 'counter', footprint: [1.9, 1.5], placement: 'floor', build: fridge,
+  },
+  stove: {
+    id: 'stove', price: 55, name: 'stove & oven', category: 'counter', footprint: [1.9, 1.5], placement: 'floor', build: stove,
+  },
+  'kitchen-sink': {
+    id: 'kitchen-sink', price: 45, name: 'kitchen sink', category: 'counter', footprint: [2.7, 1.7], placement: 'floor',
+    surface: { h: 2.625 }, variants: WOOD_VARIANTS, build: kitchenSink,
+  },
+  kettle: {
+    id: 'kettle', price: 8, name: 'kettle', category: 'things', footprint: [0.7, 0.7], placement: 'surface', build: kettle,
+  },
+  toaster: {
+    id: 'toaster', price: 10, name: 'toaster', category: 'things', footprint: [1.1, 0.7], placement: 'surface', build: toaster,
+  },
+  'book-cart': {
+    id: 'book-cart', price: 30, name: 'book cart', category: 'decor', footprint: [1.6, 1], placement: 'floor',
+    variants: WOOD_VARIANTS, build: bookCart,
+  },
+  globe: {
+    id: 'globe', price: 22, name: 'globe', category: 'decor', footprint: [1.1, 1.1], placement: 'floor', build: globe,
+  },
+  'palm-plant': {
+    id: 'palm-plant', price: 26, name: 'palm plant', category: 'plants', footprint: [1.7, 1.7], placement: 'floor', build: palmPlant,
+  },
+  'flower-trio': {
+    id: 'flower-trio', price: 12, name: 'flower trio', category: 'plants', footprint: [1.4, 0.4], placement: 'surface', build: flowerTrio,
+  },
+  'ivy-pot': {
+    id: 'ivy-pot', price: 14, name: 'ivy pot', category: 'plants', footprint: [0.7, 0.7], placement: 'surface', build: ivyPot,
+  },
+  'fairy-garland': {
+    id: 'fairy-garland', price: 25, name: 'fairy garland', category: 'decor', footprint: [2.5, 0.5], placement: 'floor', build: fairyGarland,
   },
   'umbrella-stand': {
     id: 'umbrella-stand', price: 7, name: 'umbrella stand', category: 'decor', footprint: [0.9, 0.9], placement: 'floor', build: umbrellaStand,

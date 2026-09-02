@@ -754,3 +754,20 @@ Audited ahead of real accounts; findings fixed:
   and dusk/night lamp intensities rebalanced (13→9 / 22→14) — lamps now
   cast soft all-around pools. Verified at night with one cream + two sky
   floor lamps: all three visibly lit, no wall disc.
+
+### Economy + furniture round (2026-09-02)
+- Mid-room lamps: the point light moved down the pole (38 vox) so a lamp
+  away from any wall clearly pools on the floor around itself; day
+  lampIntensity raised 1.6 → 4 so max lamps read by day.
+- Structural edits now cost beans, escalating per click and tracked
+  separately: width 10/20/30…, depth 10/20/30…, windows 15/30/45…
+  (charged only when the click actually changes something; verified live:
+  10 then 20 deducted, counter advanced).
+- Tour completion pays a one-time +150 bean housewarming gift.
+- Eleven new items: kitchen (fridge, stove & oven, kitchen sink with
+  faucet + basin, kettle w/ steam, toaster w/ toast), library (book cart
+  on wheels, globe), plants (palm, flower trio, ivy pot), and a fairy
+  garland whose bulbs plug into the lighting rig's twinkle drive (BuiltItem
+  gains fairyMats; game syncs them into the live registry). All verified
+  placed in-room or via shop thumbnails; placement refusals during testing
+  were the seats-need-floor-tiles rule, not item bugs.

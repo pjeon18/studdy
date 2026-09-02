@@ -81,6 +81,8 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
   const skyMat = new THREE.MeshBasicMaterial({ color: '#B7D0E8' })
   const glassMat = new THREE.MeshBasicMaterial({ color: '#CCDEEE', transparent: true, opacity: 0.15, depthWrite: false })
   const lampLights: THREE.PointLight[] = []
+  // twinkling bulb materials from placed fairy-light items (lighting rig drives them)
+  const fairyMatsLive: THREE.MeshBasicMaterial[] = []
 
   let shell: ShellHandles | null = null
   const live = new Map<string, LiveItem>()
@@ -188,10 +190,12 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
         if (li) {
           group.remove(li.built.group)
           if (li.built.lampLight) lampLights.splice(lampLights.indexOf(li.built.lampLight), 1)
+          for (const m of li.built.fairyMats ?? []) fairyMatsLive.splice(fairyMatsLive.indexOf(m), 1)
         }
         const built = buildItem(p.itemId, p.variant)
         built.group.userData.uid = p.uid
         if (built.lampLight) lampLights.push(built.lampLight)
+        if (built.fairyMats) fairyMatsLive.push(...built.fairyMats)
         group.add(built.group)
         li = { built, data: p, key }
         live.set(p.uid, li)
@@ -203,6 +207,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       if (!seen.has(uidStr)) {
         group.remove(li.built.group)
         if (li.built.lampLight) lampLights.splice(lampLights.indexOf(li.built.lampLight), 1)
+        for (const m of li.built.fairyMats ?? []) fairyMatsLive.splice(fairyMatsLive.indexOf(m), 1)
         live.delete(uidStr)
       }
     }
@@ -1311,7 +1316,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     glassMat,
     lampShadeMat,
     lampLights,
-    fairyMats: [] as THREE.MeshBasicMaterial[],
+    fairyMats: fairyMatsLive,
     pendantPositions: pendantGrid(),
     update(dt: number, t: number) {
       shell?.update(dt)

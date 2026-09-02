@@ -365,6 +365,15 @@ export function grantBeans(n = 100) {
 }
 
 /** Credit earned beans (focused time). */
+/** Spend beans if you have them. Returns false (and changes nothing) if not. */
+export function spendBeans(n: number): boolean {
+  if (n <= 0) return true
+  if (save.beans < n) return false
+  save.beans -= n
+  commit('beans')
+  return true
+}
+
 export function addBeans(n: number) {
   if (n <= 0) return
   save.beans += n

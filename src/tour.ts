@@ -1,6 +1,8 @@
 // A short guided tour of the UI after onboarding: a pixel callout bubble
 // hops between the real controls and says what each one does.
 import { sfx } from './sounds'
+import * as store from './store'
+import { toast } from './ui'
 
 interface TourStep {
   sel: string
@@ -30,7 +32,14 @@ export function runTour(ui: HTMLElement, onDone: () => void) {
   const finish = () => {
     ring.remove()
     bubble.remove()
+    const firstTime = localStorage.getItem('studdy-tour-done') !== '1'
     localStorage.setItem('studdy-tour-done', '1')
+    if (firstTime) {
+      // a housewarming gift for making it through the tour
+      store.addBeans(150)
+      sfx.earn()
+      toast('a little housewarming gift: +150 beans — go explore the shop ♪')
+    }
     onDone()
   }
 

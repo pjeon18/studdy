@@ -46,7 +46,7 @@ const STATES: Record<Mode, ModeState> = {
     dirColor: '#FFF4E7',
     dirIntensity: 0.75,
     fillIntensity: 0.2,
-    lampIntensity: 1.6,
+    lampIntensity: 4,
     pendantIntensity: 9,
     washIntensity: 0.4,
     ambientScale: 1,
