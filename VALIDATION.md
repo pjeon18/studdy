@@ -787,3 +787,12 @@ Audited ahead of real accounts; findings fixed:
   persisted per browser; UI stays crisp in both.
 - Verified live: day/night ramps render, retro pixelates the scene only,
   outline pass shows no band-edge artifacts, thumbnails inherit the look.
+
+### Light tuning + bulb temperature (2026-09-02)
+- Day max dimmed (pendants 9→7, wash 0.4→0.34, ambient share 1→0.9,
+  ramp highlight 1.32→1.16) and dusk max softened (pendants 8→6.3, wash
+  0.32→0.27, highlight 1.34→1.2).
+- Café controls gain "✦ bulbs · warm / cool": switches the pendant grid,
+  ceiling wash, and ambient between cozy warm (#FFDCA6) and clean cool
+  (#E7F0F8) temperatures; persisted per browser, applied on boot, sits in
+  the owner-only section so visitors can't change a café's bulbs.

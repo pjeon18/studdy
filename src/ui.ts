@@ -105,6 +105,8 @@ export interface UICallbacks {
   onMode: (m: Mode) => void
   onRoomLight: (mult: number) => void
   onFurnitureLight: (mult: number) => void
+  /** Bulb temperature for the room lights. */
+  onBulbTone?: (tone: 'warm' | 'cool') => void
   /** Turn the standing player (the self card's "↻ turn around"). */
   onTurn?: () => void
   /** Send a real friend request (profile cards of real people). */
@@ -182,6 +184,11 @@ export function buildUI(cb: UICallbacks) {
           <span class="lights-label">✦ lamps</span>
           <input type="range" class="lights-slider" data-light="furniture" min="0" max="100" value="50" />
         </label>
+        <div class="lights-row bulb-row">
+          <span class="lights-label">✦ bulbs</span>
+          <button class="glossy-btn ed-mini bulb-btn active" data-bulb="warm">warm</button>
+          <button class="glossy-btn ed-mini bulb-btn" data-bulb="cool">cool</button>
+        </div>
       </div>
       <div class="ed-note mode-ro-note hidden">the owner sets the mood here ♪</div>
       <label class="lights-row">
@@ -208,6 +215,18 @@ export function buildUI(cb: UICallbacks) {
       else if (slider.dataset.light === 'furniture') cb.onFurnitureLight(Number(slider.value) / 50)
     })
   })
+  const bulbBtns = modeWin.querySelectorAll<HTMLButtonElement>('.bulb-btn')
+  const storedTone = localStorage.getItem('studdy-bulbs') === 'cool' ? 'cool' : 'warm'
+  bulbBtns.forEach((b) => {
+    b.classList.toggle('active', b.dataset.bulb === storedTone)
+    b.addEventListener('click', () => {
+      bulbBtns.forEach((x) => x.classList.remove('active'))
+      b.classList.add('active')
+      localStorage.setItem('studdy-bulbs', b.dataset.bulb!)
+      cb.onBulbTone?.(b.dataset.bulb as 'warm' | 'cool')
+    })
+  })
+
   cafeTab.addEventListener('click', () => toggleRightWindow(modeWin, cafeTab))
   modeWin.querySelector('.tb-close')!.addEventListener('click', () => toggleRightWindow(modeWin, cafeTab))
   const musicSlider = modeWin.querySelector('.music-slider') as HTMLInputElement

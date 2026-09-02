@@ -339,6 +339,7 @@ const ui = buildUI({
   onMode: (m) => lighting.setMode(m),
   onRoomLight: (v) => lighting.setRoomLight(v),
   onFurnitureLight: (v) => lighting.setFurnitureLight(v),
+  onBulbTone: (t) => lighting.setBulbTone(t),
   onTurn: () => game?.turnPlayer(),
   onFriendUser: async (userId) => toast(await requestFriend(userId)),
   onVisitUser: async (userId) => {
@@ -352,6 +353,8 @@ const ui = buildUI({
   },
 })
 lighting.onBackground = (a, b) => ui.setBackground(a, b)
+// remembered bulb temperature applies on boot
+if (localStorage.getItem('studdy-bulbs') === 'cool') lighting.setBulbTone('cool')
 if (game) {
   editor = buildEditor(document.getElementById('ui')!, game)
   editor.setCapacity(game.capacity())

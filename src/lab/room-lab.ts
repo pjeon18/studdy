@@ -184,9 +184,9 @@ function setMode(mode: Mode) {
   scene.background = new THREE.Color(L.bg)
   document.body.style.background = L.bg
 }
-document.querySelectorAll<HTMLButtonElement>('#hud button').forEach((b) =>
+document.querySelectorAll<HTMLButtonElement>('#hud button[data-mode]').forEach((b) =>
   b.addEventListener('click', () => {
-    document.querySelectorAll('#hud button').forEach((x) => x.classList.remove('on'))
+    document.querySelectorAll('#hud button[data-mode]').forEach((x) => x.classList.remove('on'))
     b.classList.add('on')
     setMode(b.dataset.mode as Mode)
   })

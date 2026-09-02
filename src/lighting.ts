@@ -49,10 +49,10 @@ const STATES: Record<Mode, ModeState> = {
     dirIntensity: 0.75,
     fillIntensity: 0.2,
     lampIntensity: 4,
-    pendantIntensity: 9,
-    washIntensity: 0.4,
-    ambientScale: 1,
-    ramp: [0.36, 0.29, 0.88, 0.56, 0.5, 0.98, 1.0, 0.94, 0.86, 1.32, 1.19, 0.9],
+    pendantIntensity: 7,
+    washIntensity: 0.34,
+    ambientScale: 0.9,
+    ramp: [0.36, 0.29, 0.88, 0.56, 0.5, 0.98, 1.0, 0.94, 0.86, 1.16, 1.08, 0.92],
     screenGlow: 0.6,
     sky: '#BCD6EC',
     roof: '#97AECB',
@@ -69,10 +69,10 @@ const STATES: Record<Mode, ModeState> = {
     dirIntensity: 0.28,
     fillIntensity: 0.1,
     lampIntensity: 9,
-    pendantIntensity: 8,
-    washIntensity: 0.32,
+    pendantIntensity: 6.3,
+    washIntensity: 0.27,
     ambientScale: 0.42,
-    ramp: [0.3, 0.22, 0.75, 0.62, 0.44, 0.86, 1.02, 0.87, 0.8, 1.34, 1.06, 0.82],
+    ramp: [0.3, 0.22, 0.75, 0.62, 0.44, 0.86, 1.02, 0.87, 0.8, 1.2, 0.99, 0.8],
     screenGlow: 1.8,
     sky: '#8B87B8',
     roof: '#6C6C99',
@@ -104,6 +104,12 @@ const STATES: Record<Mode, ModeState> = {
 }
 
 const FAIRY_BASE = ['#FF9EBB', '#9FE8CF', '#FFDE8A', '#CDBAFF']
+
+/** Room-light bulb temperatures (pendant grid + ceiling wash + ambient). */
+const BULBS = {
+  warm: { pend: '#FFDCA6', wash: '#FFE7C2', amb: '#FFF3E2' },
+  cool: { pend: '#E7F0F8', wash: '#E4EEF9', amb: '#EDF4FB' },
+}
 
 export class Lighting {
   hemi: THREE.HemisphereLight
@@ -211,7 +217,7 @@ export class Lighting {
     // don't blow out
     this.pendantNorm = Math.min(1, 2 / Math.max(1, positions.length))
     for (const p of positions) {
-      const light = new THREE.PointLight('#FFDCA6', 3.5, 26, 1.05)
+      const light = new THREE.PointLight(BULBS[this.bulbTone].pend, 3.5, 26, 1.05)
       light.position.copy(p)
       this.scene.add(light)
       this.pendants.push(light)
@@ -222,6 +228,17 @@ export class Lighting {
   /** Café-owner control: 0..2 multiplier on the ceiling (room) lights. */
   setRoomLight(mult: number) {
     this.roomMult = mult
+    this.apply(this.cur, this.target, this.lastE)
+  }
+
+  /** Bulb temperature for the room lights: cozy warm or clean cool. */
+  private bulbTone: 'warm' | 'cool' = 'warm'
+  setBulbTone(tone: 'warm' | 'cool') {
+    this.bulbTone = tone
+    const B = BULBS[tone]
+    this.pendants.forEach((l) => l.color.set(B.pend))
+    this.wash.color.set(B.wash)
+    this.roomAmbient.color.set(B.amb)
     this.apply(this.cur, this.target, this.lastE)
   }
 
