@@ -192,15 +192,64 @@ document.querySelectorAll<HTMLButtonElement>('#hud button').forEach((b) =>
   })
 )
 
-// ---------- two views: crisp | pixelated ----------
+// ---------- one full-screen view: crisp OR pixelated, zoom + pan ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true })
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 document.body.appendChild(renderer.domElement)
 
+let view: 'crisp' | 'pixel' = 'crisp'
+document.querySelectorAll<HTMLButtonElement>('#hud button[data-view]').forEach((b) =>
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#hud button[data-view]').forEach((x) => x.classList.remove('on'))
+    b.classList.add('on')
+    view = b.dataset.view as 'crisp' | 'pixel'
+  })
+)
+
 const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200)
-cam.position.set(34, 30, 34)
-cam.lookAt(10, 1.5, 7)
+const target = new THREE.Vector3(10, 1.5, 7)
+const OFFSET = new THREE.Vector3(24, 28.5, 27)
+let zoom = 1
+function placeCam() {
+  cam.position.copy(target).add(OFFSET)
+  cam.lookAt(target)
+}
+placeCam()
+
+// wheel zoom (cursor-ish centered) + drag pan, like the game
+window.addEventListener(
+  'wheel',
+  (e) => {
+    e.preventDefault()
+    zoom = Math.min(8, Math.max(0.6, zoom * Math.exp(-e.deltaY * 0.0012)))
+  },
+  { passive: false }
+)
+let dragging = false
+let lastX = 0
+let lastY = 0
+const camRight = new THREE.Vector3()
+const camUp = new THREE.Vector3()
+window.addEventListener('pointerdown', (e) => {
+  if ((e.target as HTMLElement).closest('#hud')) return
+  dragging = true
+  lastX = e.clientX
+  lastY = e.clientY
+})
+window.addEventListener('pointerup', () => (dragging = false))
+window.addEventListener('pointermove', (e) => {
+  if (!dragging) return
+  const wpp = (cam.right - cam.left) / window.innerWidth
+  cam.updateMatrixWorld()
+  camRight.setFromMatrixColumn(cam.matrixWorld, 0)
+  camUp.setFromMatrixColumn(cam.matrixWorld, 1)
+  target.addScaledVector(camRight, -(e.clientX - lastX) * wpp)
+  target.addScaledVector(camUp, (e.clientY - lastY) * wpp)
+  lastX = e.clientX
+  lastY = e.clientY
+  placeCam()
+})
 
 let lowRT = new THREE.WebGLRenderTarget(4, 4)
 lowRT.texture.magFilter = THREE.NearestFilter
@@ -214,45 +263,42 @@ function frame() {
   const W = window.innerWidth
   const H = window.innerHeight
   renderer.setSize(W, H, false)
-  const q = W / 2
   const t = clock.elapsedTime
   const dt = Math.min(clock.getDelta(), 0.05)
   for (const a of animators) a(dt, t)
 
-  // fit the 20-unit room into each half, square pixels
-  const aspect = q / H
-  const halfW = 14
+  const aspect = W / H
+  const halfW = 14 / zoom
   cam.left = -halfW
   cam.right = halfW
   cam.top = halfW / aspect
   cam.bottom = -halfW / aspect
   cam.updateProjectionMatrix()
 
-  renderer.setScissorTest(true)
-  // left: crisp
-  renderer.setViewport(0, 0, q, H)
-  renderer.setScissor(0, 0, q, H)
-  renderer.render(scene, cam)
-  // right: the same frame, small + nearest-upscaled
-  const rw = Math.max(4, Math.floor(q / 1.6))
-  const rh = Math.max(4, Math.floor(H / 1.6))
-  if (lowRT.width !== rw || lowRT.height !== rh) {
-    lowRT.dispose()
-    lowRT = new THREE.WebGLRenderTarget(rw, rh)
-    lowRT.texture.magFilter = THREE.NearestFilter
-    blitMat.map = lowRT.texture
-    blitMat.needsUpdate = true
+  if (view === 'crisp') {
+    renderer.setScissorTest(false)
+    renderer.setRenderTarget(null)
+    renderer.setViewport(0, 0, W, H)
+    renderer.render(scene, cam)
+  } else {
+    // pixel size stays constant on screen; zooming reveals detail
+    const rw = Math.max(4, Math.floor(W / 1.6))
+    const rh = Math.max(4, Math.floor(H / 1.6))
+    if (lowRT.width !== rw || lowRT.height !== rh) {
+      lowRT.dispose()
+      lowRT = new THREE.WebGLRenderTarget(rw, rh)
+      lowRT.texture.magFilter = THREE.NearestFilter
+      blitMat.map = lowRT.texture
+      blitMat.needsUpdate = true
+    }
+    renderer.setScissorTest(false)
+    renderer.setRenderTarget(lowRT)
+    renderer.setViewport(0, 0, rw, rh)
+    renderer.render(scene, cam)
+    renderer.setRenderTarget(null)
+    renderer.setViewport(0, 0, W, H)
+    renderer.render(blitScene, blitCam)
   }
-  renderer.setScissorTest(false)
-  renderer.setRenderTarget(lowRT)
-  renderer.setViewport(0, 0, rw, rh)
-  renderer.render(scene, cam)
-  renderer.setRenderTarget(null)
-  renderer.setScissorTest(true)
-  renderer.setViewport(q, 0, q, H)
-  renderer.setScissor(q, 0, q, H)
-  renderer.render(blitScene, blitCam)
-
   requestAnimationFrame(frame)
 }
 frame()
