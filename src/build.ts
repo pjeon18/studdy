@@ -57,11 +57,33 @@ export function outlined<T extends THREE.Object3D>(o: T): T {
   return o
 }
 
-const matCache = new Map<string, THREE.MeshLambertMaterial>()
-export function smoothMat(hex: string): THREE.MeshLambertMaterial {
+// ---------- treatment D: the shared hue-shifted toon ramp ----------
+// Every game material quantizes its lighting through this 4-band ramp.
+// Bands are COLORED multipliers: shadows shift toward blue-violet, highlights
+// toward warm yellow — the pixel-art color rule, never plain darker/lighter.
+// The lighting rig lerps these values per time of day.
+export const toonRampData = new Float32Array(16)
+export const toonRamp = new THREE.DataTexture(toonRampData, 4, 1, THREE.RGBAFormat, THREE.FloatType)
+toonRamp.magFilter = THREE.NearestFilter
+toonRamp.minFilter = THREE.NearestFilter
+
+/** 12 numbers: deep-shadow rgb · shadow rgb · mid rgb · highlight rgb. */
+export function setToonRamp(v: number[]) {
+  for (let i = 0; i < 4; i++) {
+    toonRampData[i * 4] = v[i * 3]
+    toonRampData[i * 4 + 1] = v[i * 3 + 1]
+    toonRampData[i * 4 + 2] = v[i * 3 + 2]
+    toonRampData[i * 4 + 3] = 1
+  }
+  toonRamp.needsUpdate = true
+}
+setToonRamp([0.36, 0.29, 0.88, 0.56, 0.5, 0.98, 1.0, 0.94, 0.86, 1.32, 1.19, 0.9]) // day
+
+const matCache = new Map<string, THREE.MeshToonMaterial>()
+export function smoothMat(hex: string): THREE.MeshToonMaterial {
   let m = matCache.get(hex)
   if (!m) {
-    m = new THREE.MeshLambertMaterial({ color: new THREE.Color(hex).convertSRGBToLinear() })
+    m = new THREE.MeshToonMaterial({ color: new THREE.Color(hex).convertSRGBToLinear(), gradientMap: toonRamp })
     matCache.set(hex, m)
   }
   return m
@@ -99,16 +121,17 @@ export function blobTexture(): THREE.Texture {
 }
 
 /** The floor lamp's shade material — its emissive is driven by the lighting rig. */
-export const lampShadeMat = new THREE.MeshLambertMaterial({
+export const lampShadeMat = new THREE.MeshToonMaterial({
   color: new THREE.Color(PAL.mustard).convertSRGBToLinear(),
   emissive: new THREE.Color(PAL.mustard).convertSRGBToLinear(),
   emissiveIntensity: 0.06,
+  gradientMap: toonRamp,
 })
 
 /** Every lamp-shade material ever made — the lighting rig drives all their emissives. */
-export const lampShadeMats: THREE.MeshLambertMaterial[] = [lampShadeMat]
-const shadeCache = new Map<string, THREE.MeshLambertMaterial>()
-export function shadeMat(hex: string): THREE.MeshLambertMaterial {
+export const lampShadeMats: (THREE.MeshLambertMaterial | THREE.MeshToonMaterial)[] = [lampShadeMat]
+const shadeCache = new Map<string, THREE.MeshToonMaterial>()
+export function shadeMat(hex: string): THREE.MeshToonMaterial {
   if (hex === PAL.mustard) return lampShadeMat
   let m = shadeCache.get(hex)
   if (!m) {
@@ -116,7 +139,7 @@ export function shadeMat(hex: string): THREE.MeshLambertMaterial {
     // a lit shade glows LAMPLIGHT-warm whatever its color — a blue shade
     // emitting pure blue reads as "off" next to a cream one at night
     const glow = c.clone().lerp(new THREE.Color('#FFD9A0').convertSRGBToLinear(), 0.6)
-    m = new THREE.MeshLambertMaterial({ color: c, emissive: glow, emissiveIntensity: 0.06 })
+    m = new THREE.MeshToonMaterial({ color: c, emissive: glow, emissiveIntensity: 0.06, gradientMap: toonRamp })
     shadeCache.set(hex, m)
     lampShadeMats.push(m)
   }

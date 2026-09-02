@@ -4,7 +4,7 @@
 // shine only, outlines automatic.
 import * as THREE from 'three'
 import { VoxelGrid } from './voxel'
-import { PAL, VOX, puck, cone, outlined, smoothMat, shadeMat } from './build'
+import { PAL, VOX, puck, cone, outlined, smoothMat, shadeMat, toonRamp } from './build'
 import type { CatalogItem } from './types'
 
 export interface BuiltItem {
@@ -1257,7 +1257,7 @@ function fairyGarland(): BuiltItem {
   group.add(vox(g))
   // the drooping string with twinkling bulbs (the lighting rig drives them)
   const fairyMats: THREE.MeshBasicMaterial[] = []
-  const wireMat = new THREE.MeshLambertMaterial({ color: '#6B5844' })
+  const wireMat = new THREE.MeshToonMaterial({ color: '#6B5844', gradientMap: toonRamp })
   const N = 9
   for (let i = 0; i <= N; i++) {
     const t = i / N

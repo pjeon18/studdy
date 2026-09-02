@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { lampShadeMats } from './build'
+import { lampShadeMats, setToonRamp } from './build'
 
 /** What the lighting rig needs from a world (showcase or game). */
 export interface LightingWorld {
@@ -7,7 +7,7 @@ export interface LightingWorld {
   skyMat: THREE.MeshBasicMaterial
   glassMat: THREE.MeshBasicMaterial
   fairyMats: THREE.MeshBasicMaterial[]
-  lampShadeMat: THREE.MeshLambertMaterial
+  lampShadeMat: THREE.MeshLambertMaterial | THREE.MeshToonMaterial
   pendantPositions: THREE.Vector3[]
   lampPos?: THREE.Vector3
   screenGlowPos?: THREE.Vector3
@@ -29,6 +29,8 @@ interface ModeState {
   washIntensity: number
   /** How much of the pendant light bleeds into the flat ambient floor. */
   ambientScale: number
+  /** Hue-shift toon ramp: deep-shadow · shadow · mid · highlight (rgb each). */
+  ramp: number[]
   screenGlow: number
   sky: string
   roof: string
@@ -50,6 +52,7 @@ const STATES: Record<Mode, ModeState> = {
     pendantIntensity: 9,
     washIntensity: 0.4,
     ambientScale: 1,
+    ramp: [0.36, 0.29, 0.88, 0.56, 0.5, 0.98, 1.0, 0.94, 0.86, 1.32, 1.19, 0.9],
     screenGlow: 0.6,
     sky: '#BCD6EC',
     roof: '#97AECB',
@@ -69,6 +72,7 @@ const STATES: Record<Mode, ModeState> = {
     pendantIntensity: 8,
     washIntensity: 0.32,
     ambientScale: 0.42,
+    ramp: [0.3, 0.22, 0.75, 0.62, 0.44, 0.86, 1.02, 0.87, 0.8, 1.34, 1.06, 0.82],
     screenGlow: 1.8,
     sky: '#8B87B8',
     roof: '#6C6C99',
@@ -88,6 +92,7 @@ const STATES: Record<Mode, ModeState> = {
     pendantIntensity: 5.5,
     washIntensity: 0.24,
     ambientScale: 0.3,
+    ramp: [0.2, 0.18, 0.55, 0.4, 0.4, 0.74, 0.74, 0.73, 0.92, 1.14, 0.98, 0.74],
     screenGlow: 5,
     sky: '#313857',
     roof: '#252A45',
@@ -243,6 +248,7 @@ export class Lighting {
       pendantIntensity: ln(a.pendantIntensity, b.pendantIntensity),
       washIntensity: ln(a.washIntensity, b.washIntensity),
       ambientScale: ln(a.ambientScale, b.ambientScale),
+      ramp: a.ramp.map((x, i) => ln(x, b.ramp[i])),
       screenGlow: ln(a.screenGlow, b.screenGlow),
       sky: lc(a.sky, b.sky),
       roof: lc(a.roof, b.roof),
@@ -273,6 +279,7 @@ export class Lighting {
     this.fill.intensity = ln(a.fillIntensity, b.fillIntensity)
     const lampVal = ln(a.lampIntensity, b.lampIntensity) * this.furnMult
     this.lampLights.forEach((l) => (l.intensity = lampVal))
+    setToonRamp(a.ramp.map((x, i) => ln(x, b.ramp[i])))
     const pend = ln(a.pendantIntensity, b.pendantIntensity) * this.roomMult
     this.pendants.forEach((l) => (l.intensity = pend * this.pendantNorm))
     this.roomAmbient.intensity = pend * 0.07 * ln(a.ambientScale, b.ambientScale)

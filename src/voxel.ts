@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { toonRamp } from './build'
 
 type Face = {
   dir: [number, number, number]
@@ -184,7 +185,7 @@ export class VoxelGrid {
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
     geo.setIndex(indices)
 
-    const mat = opts.material ?? new THREE.MeshLambertMaterial({ vertexColors: true })
+    const mat = opts.material ?? new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: toonRamp })
     const mesh = new THREE.Mesh(geo, mat)
     mesh.castShadow = true
     mesh.receiveShadow = true

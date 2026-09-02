@@ -771,3 +771,19 @@ Audited ahead of real accounts; findings fixed:
   gains fairyMats; game syncs them into the live registry). All verified
   placed in-room or via shop thumbnails; placement refusals during testing
   were the seats-need-floor-tiles rule, not item bugs.
+
+### Treatment D in the game (2026-09-02)
+- The whole game now shades through one shared 4-band hue-shifted toon
+  ramp (build.ts toonRamp, FloatType colored texels): shadows shift toward
+  blue-violet and saturate, highlights lift toward warm yellow — chosen in
+  the room lab over grain textures (which muddied color). Materials
+  converted at the source: voxel default, smoothMat, lamp shades, fairy
+  wire; Basic mats (eyes, glass, shines) untouched; the ?showcase scene
+  keeps its historical materials.
+- The lighting rig lerps ramp values per mode (day painterly / dusk peachy
+  / night cool-dim) inside the same crossfade that drives everything else.
+- "look" row in settings: crisp (supersampled) vs retro ♪ (renders at
+  1/1.5 scale, nearest-upscaled = Paul's chosen pixelation level);
+  persisted per browser; UI stays crisp in both.
+- Verified live: day/night ramps render, retro pixelates the scene only,
+  outline pass shows no band-edge artifacts, thumbnails inherit the look.

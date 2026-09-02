@@ -43,8 +43,23 @@ const isShowcase = params.has('showcase')
 const stage = document.getElementById('stage')!
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-// light supersampling on top of the device ratio smooths remaining voxel edges
-renderer.setPixelRatio(Math.min(window.devicePixelRatio * 1.5, 3))
+// two looks, one renderer: "crisp" supersamples; "retro" renders at 1/1.5
+// scale and lets the browser nearest-upscale it into chunky pixels
+export type Look = 'crisp' | 'retro'
+const LOOK_KEY = 'studdy-look'
+function applyLook(look: Look) {
+  if (look === 'retro') {
+    renderer.setPixelRatio(1 / 1.5)
+    renderer.domElement.style.imageRendering = 'pixelated'
+  } else {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio * 1.5, 3))
+    renderer.domElement.style.imageRendering = ''
+  }
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  localStorage.setItem(LOOK_KEY, look)
+}
+window.addEventListener('studdy:look', (e) => applyLook((e as CustomEvent).detail as Look))
+applyLook(localStorage.getItem(LOOK_KEY) === 'retro' ? 'retro' : 'crisp')
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.outputColorSpace = THREE.SRGBColorSpace
