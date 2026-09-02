@@ -3,7 +3,7 @@
 import * as THREE from 'three'
 import { buildShell, type ShellHandles } from './shell'
 import { CATALOG, buildItem, buildPackage, footprintOf, type BuiltItem } from './items'
-import { lampShadeMat, PAL } from './build'
+import { lampShadeMat, PAL, VOX } from './build'
 import { buildPerson, makeAnimator, makeIdleAnimator } from './people'
 import * as store from './store'
 import { sfx } from './sounds'
@@ -522,7 +522,9 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
   function spawnSitter(seat: SeatRef, persona?: PatronPersona): Occupant {
     const person = buildPerson(persona ?? playerOpts())
     const entry = CATALOG[seat.itemId]
-    const y = entry.seatY ?? 1.8
+    // seatY is the cushion top; the sit pose's thighs reach 3 voxels below the
+    // group origin, so lift by that much or the lap sinks into the seat
+    const y = (entry.seatY ?? 1.8) + 3 * VOX
     person.group.position.set(seat.x, y, seat.z)
     // seats with backrests face the seat's forward; backless seats face the table
     person.group.rotation.y = entry.seatFaces === 'item' ? (seat.rot * Math.PI) / 2 : faceAngle(seat.x, seat.z)
