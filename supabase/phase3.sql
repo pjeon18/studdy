@@ -3,11 +3,37 @@
 -- profiles (handle + display name) · cafes (visitable rooms)
 -- friends (requests) · guest_notes (cross-user guestbook) · blocks
 --
--- Run the whole file in the Supabase SQL editor.
+-- Run the whole file in the Supabase SQL editor. Safe to re-run.
 -- Same posture as saves: RLS on everything, policies scoped
 -- `to authenticated`, anon revoked, explicit grants (new projects
 -- don't auto-grant), size caps on every user-supplied blob.
+--
+-- Order matters: blocks is created first because the cafes and
+-- friends policies reference it.
 -- ============================================================
+
+-- ---------- blocks: absolute, owner-scoped ----------
+create table if not exists public.blocks (
+  owner uuid not null references auth.users(id) on delete cascade,
+  blocked uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (owner, blocked),
+  check (owner <> blocked)
+);
+alter table public.blocks enable row level security;
+
+drop policy if exists "own blocks select" on public.blocks;
+create policy "own blocks select"
+  on public.blocks for select to authenticated
+  using (owner = auth.uid());
+drop policy if exists "own blocks insert" on public.blocks;
+create policy "own blocks insert"
+  on public.blocks for insert to authenticated
+  with check (owner = auth.uid());
+drop policy if exists "own blocks delete" on public.blocks;
+create policy "own blocks delete"
+  on public.blocks for delete to authenticated
+  using (owner = auth.uid());
 
 -- ---------- profiles: who a user is, publicly ----------
 create table if not exists public.profiles (
@@ -23,12 +49,15 @@ alter table public.profiles enable row level security;
 
 -- profiles are public inside the game (names/handles are chosen display
 -- data, never emails) — that's what makes the directory + friends work
+drop policy if exists "profiles are readable" on public.profiles;
 create policy "profiles are readable"
   on public.profiles for select to authenticated
   using (true);
+drop policy if exists "own profile insert" on public.profiles;
 create policy "own profile insert"
   on public.profiles for insert to authenticated
   with check (user_id = auth.uid());
+drop policy if exists "own profile update" on public.profiles;
 create policy "own profile update"
   on public.profiles for update to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -45,6 +74,7 @@ alter table public.cafes enable row level security;
 
 -- open cafés are visitable by anyone signed in — unless the owner
 -- blocked you. closed cafés are visible only to their owner.
+drop policy if exists "open cafes are visitable" on public.cafes;
 create policy "open cafes are visitable"
   on public.cafes for select to authenticated
   using (
@@ -57,35 +87,17 @@ create policy "open cafes are visitable"
       )
     )
   );
+drop policy if exists "own cafe insert" on public.cafes;
 create policy "own cafe insert"
   on public.cafes for insert to authenticated
   with check (user_id = auth.uid());
+drop policy if exists "own cafe update" on public.cafes;
 create policy "own cafe update"
   on public.cafes for update to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 create index if not exists cafes_open_recent
   on public.cafes (updated_at desc) where open;
-
--- ---------- blocks: absolute, owner-scoped ----------
-create table if not exists public.blocks (
-  owner uuid not null references auth.users(id) on delete cascade,
-  blocked uuid not null references auth.users(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  primary key (owner, blocked),
-  check (owner <> blocked)
-);
-alter table public.blocks enable row level security;
-
-create policy "own blocks select"
-  on public.blocks for select to authenticated
-  using (owner = auth.uid());
-create policy "own blocks insert"
-  on public.blocks for insert to authenticated
-  with check (owner = auth.uid());
-create policy "own blocks delete"
-  on public.blocks for delete to authenticated
-  using (owner = auth.uid());
 
 -- ---------- friends: requests + accepted, one row per pair ----------
 create table if not exists public.friends (
@@ -100,12 +112,14 @@ create table if not exists public.friends (
 );
 alter table public.friends enable row level security;
 
+drop policy if exists "own friendships select" on public.friends;
 create policy "own friendships select"
   on public.friends for select to authenticated
   using (requester = auth.uid() or addressee = auth.uid());
 
 -- you can ask — politely: pending only, not if either side blocked the
 -- other, no duplicate pair in either direction, at most 20 open asks
+drop policy if exists "send friend request" on public.friends;
 create policy "send friend request"
   on public.friends for insert to authenticated
   with check (
@@ -127,12 +141,14 @@ create policy "send friend request"
   );
 
 -- only the person asked can accept, and accept is the only edit
+drop policy if exists "accept friend request" on public.friends;
 create policy "accept friend request"
   on public.friends for update to authenticated
   using (addressee = auth.uid() and status = 'pending')
   with check (addressee = auth.uid() and status = 'accepted');
 
 -- either side can decline / unfriend
+drop policy if exists "end friendship" on public.friends;
 create policy "end friendship"
   on public.friends for delete to authenticated
   using (requester = auth.uid() or addressee = auth.uid());
@@ -154,6 +170,7 @@ create table if not exists public.guest_notes (
 alter table public.guest_notes enable row level security;
 
 -- your received notes are yours; authors can see what they left
+drop policy if exists "read own guestbook" on public.guest_notes;
 create policy "read own guestbook"
   on public.guest_notes for select to authenticated
   using (cafe_owner = auth.uid() or author = auth.uid());
@@ -161,6 +178,7 @@ create policy "read own guestbook"
 -- leaving a note requires: it's really you, their café is open with the
 -- guestbook enabled, you're not blocked, your signed name matches your
 -- profile, and you haven't signed this same book in the last 5 minutes
+drop policy if exists "leave a note" on public.guest_notes;
 create policy "leave a note"
   on public.guest_notes for insert to authenticated
   with check (
@@ -186,6 +204,7 @@ create policy "leave a note"
 
 -- moderation: the owner can remove anything from their book;
 -- authors can take back their own note
+drop policy if exists "moderate own guestbook" on public.guest_notes;
 create policy "moderate own guestbook"
   on public.guest_notes for delete to authenticated
   using (cafe_owner = auth.uid() or author = auth.uid());
