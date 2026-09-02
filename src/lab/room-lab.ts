@@ -199,11 +199,20 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap
 document.body.appendChild(renderer.domElement)
 
 let view: 'crisp' | 'pixel' = 'crisp'
+let pixelScale = 1.6 // 1 = no pixelation, higher = chunkier
+const pixCtl = document.getElementById('pixctl') as HTMLElement
+const pixSlider = document.getElementById('pixscale') as HTMLInputElement
+const pixVal = document.getElementById('pixval') as HTMLElement
+pixSlider.addEventListener('input', () => {
+  pixelScale = Number(pixSlider.value) / 100
+  pixVal.textContent = `${pixelScale.toFixed(1)}×`
+})
 document.querySelectorAll<HTMLButtonElement>('#hud button[data-view]').forEach((b) =>
   b.addEventListener('click', () => {
     document.querySelectorAll('#hud button[data-view]').forEach((x) => x.classList.remove('on'))
     b.classList.add('on')
     view = b.dataset.view as 'crisp' | 'pixel'
+    pixCtl.style.display = view === 'pixel' ? 'flex' : 'none'
   })
 )
 
@@ -282,8 +291,8 @@ function frame() {
     renderer.render(scene, cam)
   } else {
     // pixel size stays constant on screen; zooming reveals detail
-    const rw = Math.max(4, Math.floor(W / 1.6))
-    const rh = Math.max(4, Math.floor(H / 1.6))
+    const rw = Math.max(4, Math.floor(W / pixelScale))
+    const rh = Math.max(4, Math.floor(H / pixelScale))
     if (lowRT.width !== rw || lowRT.height !== rh) {
       lowRT.dispose()
       lowRT = new THREE.WebGLRenderTarget(rw, rh)

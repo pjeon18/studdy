@@ -28,6 +28,10 @@
       <span style="width:14px"></span>
       <button data-view="crisp" class="on">crisp</button>
       <button data-view="pixel">pixelated</button>
+      <label id="pixctl" style="display:none; align-items:center; gap:6px; background:#FFF4DE; border:2.5px solid #4A3226; padding:4px 10px 5px; box-shadow:2.5px 2.5px 0 rgba(74,50,38,.3); font-size:13px; font-weight:700; color:#4A3226;">
+        pixel size <input id="pixscale" type="range" min="100" max="400" value="160" style="width:130px" />
+        <b id="pixval">1.6×</b>
+      </label>
     </div>
     <span class="tag" id="tagL">scroll to zoom · drag to pan</span>
     <script type="module" src="/src/lab/room-lab.ts"></script>
