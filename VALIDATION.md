@@ -632,3 +632,20 @@ Audited ahead of real accounts; findings fixed:
 - Cross-user end-to-end needs two real accounts (captcha blocks creating
   a second automated one): verify in a normal + incognito window once
   phase3.sql is run.
+
+### Phase 3 verified live (2026-09-01)
+- phase3.sql applied (reordered: blocks created before the policies that
+  reference it; idempotent `drop policy if exists` guards).
+- Full RLS matrix via REST probes against the live project: owner reads
+  200 on all five tables; signed-out denied (401/42501) everywhere; every
+  forgery rejected 403 — fake profile, fake café row, forged friend
+  requester, pre-accepted friend insert, note on your own book, forged
+  note author, `javascript:` art payload, forged block. Café rows can't
+  be deleted through the API (open=false is the off switch).
+- Positive path: the client claimed handle `ghuh`, published the café
+  row, and `?cafe=ghuh` fetched, sanitized, and rendered it from the real
+  database. Self-guard: your own link (or tapping your own presence) now
+  keeps you home instead of read-only visiting yourself.
+- Still pending: two-account cross-user E2E (friend request → accept,
+  guest note → gallery → remove/block) — needs a second real browser
+  profile; captcha prevents scripting a second account.
