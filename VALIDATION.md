@@ -832,3 +832,29 @@ Audited ahead of real accounts; findings fixed:
   rendered.
 - Copy: joining mid-sprint now says "joined mid-sprint — chat opens at
   break ♪".
+
+### Mobile / PWA pass (2026-09-02) — Build Plan 2 · T2
+- One merged ≤720px layer (the two earlier partial blocks were unified):
+  windows become bottom sheets (left/right 8px, max-height 46–56vh, own
+  scroll, safe-area-inset-bottom respected), the right tab column tucks
+  under the clock at 42px pitch, deliveries sit below the café card.
+- Brand fix: the pixel wordmark renders at its native 1× (119px) on
+  phones — any non-integer scale garbled the pixel art. The player-pill
+  name ellipsizes at 88px so long handles can't reach the logo.
+- Splash logo clamped to min(595px, 88vw); tour bubble measures its real
+  offsetHeight before clamping (the desktop 120px guess let wrapped text
+  land on the edit bar).
+- Touch: 34px min targets on coarse pointers (buttons, close/min,
+  swatches); canvas gets touch-action:none so the browser never fights
+  the drag/pinch gestures.
+- Wake lock: screen stays on while seated in a session; released on
+  stand-up; re-acquired on tab return (visibilitychange).
+- Service worker (public/sw.js, PROD only): network-first GET cache,
+  same-origin only — enables Android install prompt + light offline.
+  manifest.webmanifest + icons already in place from Phase 0.
+- Low power: crisp mode caps pixelRatio at 2 on coarse-pointer devices
+  (no 1.5× supersample); the watchdog skips ticks while document.hidden.
+- Verified at 375×812 (emulated Android): full onboarding wizard →
+  guestbook → open café → tour; goals/friends/chat/café-controls/shop/
+  directory/settings/room/furnish sheets all inside the viewport (max
+  bottom 805 of 812). Desktop re-verified unchanged after the pass.
