@@ -128,6 +128,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
       </div>
       <div class="set-row set-out-row hidden"><span></span><button class="glossy-btn ed-mini set-out">sign out</button></div>
       <div class="set-row set-share-row hidden"><span>café link</span><button class="glossy-btn btn-pink ed-mini set-share">copy ♪</button></div>
+      <div class="set-row set-card-row hidden"><span>share card</span><button class="glossy-btn btn-mint ed-mini set-card">make one ♪</button></div>
       <div class="set-row"><span>save</span><button class="glossy-btn ed-mini set-reset">reset everything</button></div>
       <div class="ed-note">studdy · a study spot that never closes ♪</div>
     </div>
@@ -171,6 +172,13 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
       prompt('your café link ♪', url)
     }
   })
+  const cardRow = setWin.querySelector('.set-card-row') as HTMLElement
+  setWin.querySelector('.set-card')!.addEventListener('click', async () => {
+    toast('drawing your card ♪')
+    const { downloadShareCard } = await import('./sharecard')
+    await downloadShareCard()
+    toast('share card saved — post it ♪')
+  })
   const paintSettings = () => {
     setSound.textContent = isEnabled() ? 'on ♪' : 'off'
     setSound.classList.toggle('btn-mint', isEnabled())
@@ -178,6 +186,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     paintNameSwatches()
     const handle = getMyHandle()
     shareRow.classList.toggle('hidden', !handle)
+    cardRow.classList.toggle('hidden', !handle)
     if (handle) shareBtn.textContent = `@${handle} · copy ♪`
     if (!cloudConfigured()) {
       setAcct.textContent = 'local only'

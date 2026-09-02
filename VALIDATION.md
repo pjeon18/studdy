@@ -708,3 +708,10 @@ Audited ahead of real accounts; findings fixed:
   phase-4 RLS matrix green (signed-out denied; self-log, forged visitor,
   oversize minutes, self-gift, forged sender, 99-bean gifts, gift deletion
   all rejected).
+
+### Share card (2026-09-02) — next-phase start
+- settings → "share card · make one ♪" draws a 1080×1350 pixel-art PNG on
+  canvas (logo, framed portrait, café name/@handle, star rating, level +
+  hosted minutes, 25/5 pitch, the ?cafe= link as a pink button) and
+  downloads it — sized for TikTok/IG posts. Canvas fonts lead with Studdy
+  Digits so 2/5 render correctly. Verified rendered in the pane.
