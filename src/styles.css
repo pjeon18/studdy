@@ -947,7 +947,7 @@ textarea.px-input { resize: none; line-height: 1.35; }
   transition: opacity 0.85s ease;
 }
 .splash.gone { opacity: 0; pointer-events: none; }
-.splash-logo { image-rendering: pixelated; animation: splash-bob 2.6s ease-in-out infinite; }
+.splash-logo { image-rendering: pixelated; animation: splash-bob 2.6s ease-in-out infinite; max-width: min(595px, 88vw); height: auto; }
 @keyframes splash-bob {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
@@ -1104,44 +1104,80 @@ textarea.px-input { resize: none; line-height: 1.35; }
 
 .ob-backdrop { z-index: 79; }
 
-/* ---------- little screens: the phone layout ---------- */
+/* ==================== mobile (T2): the phone layout ==================== */
+/* the 3D canvas owns its gestures — no browser scroll/zoom fights */
+#stage canvas { touch-action: none; }
+
+@media (pointer: coarse) {
+  /* fingers need meat: taller buttons, bigger close/minimize targets */
+  .glossy-btn { min-height: 34px; }
+  .tb-close, .tb-min { width: 30px; height: 30px; }
+  .swatch { width: 24px; height: 24px; }
+}
+
 @media (max-width: 720px) {
+  /* brand at the pixel logo's native 1× so it stays crisp */
   .brand { top: 8px; left: 10px; }
-  .wordmark { max-width: 34vw; height: auto; }
-  .brand-sub { font-size: 12px; margin-top: 6px; border-width: 7px; }
+  .brand .wordmark, .wordmark { width: 119px !important; height: auto; }
+  .brand-sub { font-size: 11px; padding: 2px 5px 1px; margin-top: 4px; border-width: 7px; }
+
   .player-pill { top: 6px; right: 8px; gap: 6px; font-size: 13px; }
-  .clock-pill { top: 34px; right: 8px; padding: 1px 6px; border-width: 9px; }
-  .clock-time { font-size: 16px; min-width: 50px; }
+  .pp-name { font-size: 14px; max-width: 88px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pp-bar { width: 54px; }
+  .pp-lv { font-size: 13px; }
+  .pp-streak { font-size: 12px; }
+
+  .clock-pill { top: 40px; right: 8px; padding: 1px 6px; }
+  .clock-time { font-size: 17px; min-width: 52px; }
   .clock-label { font-size: 12px; }
 
-  /* the right tab column tightens up under the clock */
-  .rslot-tab { font-size: 13px; padding: 0 6px 3px 5px; }
-  .goals-tab { top: 88px; }
-  .cafe-tab { top: 126px; }
-  .friends-tab { top: 164px; }
-  .chat-tab { top: 202px; }
-  .clubs-tab { top: 240px; }
+  /* deliveries drop below the brand + tagline */
+  .deliv-window { top: 92px; left: 10px; transform: none; width: 188px; font-size: 12px; }
 
-  /* windows fill the space beside the tabs instead of hiding under them */
+  /* the right tab column tucks tighter under the clock */
+  .goals-tab { top: 96px; }
+  .cafe-tab { top: 138px; }
+  .friends-tab { top: 180px; }
+  .chat-tab { top: 222px; }
+  .clubs-tab { top: 264px; }
+  .rslot-tab { right: 6px; font-size: 13px; padding-right: 8px; }
+
+  /* windows become bottom sheets that clear the tab column */
   .rslot-window {
-    right: 76px;
-    bottom: 12px;
-    max-width: calc(100vw - 88px);
-    max-height: calc(100vh - 96px);
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    width: auto;
+    max-height: 56vh;
     overflow-y: auto;
   }
-  .goals-window, .friends-window { width: calc(100vw - 88px); }
-  .friends-list { max-height: 38vh; }
-  .goals-body { max-height: none; }
+  .goals-window, .friends-window, .mode-window, .chat-window { width: auto; }
+  .goals-body, .friends-list { max-height: 44vh; }
 
-  .editor-window { left: 6px; top: 150px; width: min(232px, 58vw); max-height: calc(100vh - 150px - 92px); }
-  .deliv-window { top: 8px; width: 190px; font-size: 12px; }
+  .editor-window {
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    width: auto;
+    max-height: 46vh;
+    overflow-y: auto;
+  }
+  .shop-window, .dir-window, .info-window { width: auto; left: 8px; }
+  .info-window { top: auto; }
+  .dbg-window { bottom: calc(140px + env(safe-area-inset-bottom)); width: auto; right: 8px; }
 
-  .edit-bar { gap: 5px; flex-wrap: wrap; }
-  .edit-bar .glossy-btn { font-size: 13px; padding: 0 6px 3px; }
-  .hint { font-size: 11px; }
-  .session-hud { max-width: 88vw; }
-  .settings-window { max-width: 94vw; width: 320px; }
+  .edit-bar { left: 8px; bottom: calc(6px + env(safe-area-inset-bottom)); gap: 4px; flex-wrap: wrap; }
+  .edit-bar .glossy-btn { font-size: 13px; padding: 0 6px 4px; }
+
+  .hint { display: none; }
+  .now-banner { top: 84px; max-width: calc(100vw - 20px); }
+  .now-banner .nb-text { font-size: 12.5px; }
   .name-tag { font-size: 11px; }
-  .dbg-window { bottom: 96px; width: 180px; }
+  .settings-window { width: calc(100vw - 24px); max-height: 82vh; overflow-y: auto; }
+  .session-hud { bottom: calc(64px + env(safe-area-inset-bottom)); max-width: 88vw; }
+  .profile-card { max-width: calc(100vw - 20px); }
+  .onboard-window { width: calc(100vw - 20px); max-height: 86vh; overflow-y: auto; }
+  .tour-bubble { max-width: calc(100vw - 24px); }
+  .modal-backdrop { touch-action: none; }
 }

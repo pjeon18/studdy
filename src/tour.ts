@@ -71,9 +71,10 @@ export function runTour(ui: HTMLElement, onDone: () => void) {
         </div>
       </div>
     `
-    // place the bubble near the target, kept on screen
-    const bw = 264
-    const bh = 120
+    // place the bubble near the target, kept on screen (measure the real
+    // box — on phones the text wraps taller than the desktop guess)
+    const bw = Math.min(264, window.innerWidth - 16)
+    const bh = bubble.offsetHeight || 120
     let bx = r.left + r.width / 2 - bw / 2
     let by = r.top - bh - 14
     if (by < 8) by = r.bottom + 14

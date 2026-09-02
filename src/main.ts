@@ -54,9 +54,10 @@ function applyLook(look: Look) {
     renderer.setPixelRatio(1 / 1.5)
     renderer.domElement.style.imageRendering = 'pixelated'
   } else {
-    // phones already render at high dpr — skip the supersampling there
+    // phones already render at high dpr — skip the supersampling AND cap
+    // the buffer at 2x so 3x phones don't melt
     const coarse = window.matchMedia('(pointer: coarse)').matches
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio * (coarse ? 1 : 1.5), 3))
+    renderer.setPixelRatio(coarse ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio * 1.5, 3))
     renderer.domElement.style.imageRendering = ''
   }
   renderer.setSize(window.innerWidth, window.innerHeight)
@@ -282,6 +283,7 @@ if (isShowcase) {
     },
     onSession: (s) => {
       editor?.setSession(s)
+      syncWakeLock(!!s)
       const pos = game?.getPlayerPos()
       updateState({
         ...(s
@@ -468,6 +470,32 @@ if (game) {
   }
   setTimeout(refreshNow, 12_000) // after presence settles
   setInterval(refreshNow, 60_000)
+}
+
+// ---------- keep the screen awake while studying (phones) ----------
+let wakeLock: { release(): Promise<void> } | null = null
+let wantWake = false
+async function syncWakeLock(want: boolean) {
+  wantWake = want
+  try {
+    if (want && !wakeLock && 'wakeLock' in navigator) {
+      wakeLock = await (navigator as Navigator & { wakeLock: { request(t: string): Promise<never> } }).wakeLock.request('screen')
+    } else if (!want && wakeLock) {
+      await wakeLock.release()
+      wakeLock = null
+    }
+  } catch {
+    wakeLock = null // denied or unsupported — the game works fine without it
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  wakeLock = null // the browser drops it on hide; re-request when back
+  if (!document.hidden && wantWake) syncWakeLock(true)
+})
+
+// ---------- offline shell (PWA install on Android needs this) ----------
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').catch(() => {})
 }
 
 // ---------- sound unlock + UI ticks ----------
@@ -790,8 +818,10 @@ function frame() {
   requestAnimationFrame(frame)
 }
 frame()
-// keep transitions moving if rAF is throttled (hidden/embedded tab)
+// keep transitions moving if rAF is throttled (embedded tab) — but a truly
+// hidden tab gets to rest (battery)
 setInterval(() => {
+  if (document.hidden) return
   if (performance.now() - lastFrame > 400) {
     clockT.getDelta()
     step(0.35)
