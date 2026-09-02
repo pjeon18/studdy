@@ -568,9 +568,40 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     occupants.delete(key)
   }
 
+  // real visitors who are standing/wandering (not on a seat)
+  const remoteStanding = new Map<
+    string,
+    { group: THREE.Group; animate: (dt: number, t: number) => void; patron: RemotePatron }
+  >()
+
+  function removeRemoteStanding(key: string) {
+    const r = remoteStanding.get(key)
+    if (!r) return
+    if (hoverHull?.src === r.group) clearHull()
+    group.remove(r.group)
+    remoteStanding.delete(key)
+  }
+
   function clearOccupants() {
     for (const k of [...occupants.keys()]) removeOccupant(k)
+    for (const k of [...remoteStanding.keys()]) removeRemoteStanding(k)
     remoteSeat.clear()
+  }
+
+  /** Profile-card data for a real remote person. */
+  function remoteCard(p: RemotePatron, since: number): CardData {
+    return {
+      name: p.name,
+      status: p.napkin ? `"${p.napkin}"` : '"studying ♪"',
+      working: p.napkin || '…',
+      headphones: p.headphones,
+      streak: 'here now ★',
+      focusedSince: since,
+      hair: p.hair,
+      sweater: p.sweater,
+      userId: p.uid || undefined,
+      level: p.level,
+    }
   }
 
   /** Reconcile the real people in this room (from realtime presence).
@@ -615,6 +646,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
           continue
         }
       }
+      removeRemoteStanding(p.key) // they sat down — the standing figure retires
       const seat = seats.find((s) => s.key === seatKey)!
       const occ = spawnSitter(seat, {
         name: p.name,
@@ -635,6 +667,41 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       })
       occ.sitSince = p.since
       remoteSeat.set(p.key, seatKey)
+    }
+
+    // standing visitors: real people wandering the room at their true spot
+    const room = activeRoom()
+    const standingWant = new Map<string, RemotePatron>()
+    for (const p of patrons) {
+      if (p.seatKey || (!p.x && !p.z)) continue // seated, or no position yet
+      standingWant.set(p.key, p)
+    }
+    for (const key of [...remoteStanding.keys()]) if (!standingWant.has(key)) removeRemoteStanding(key)
+    for (const [key, p] of standingWant) {
+      const x = Math.min(room.w - 0.6, Math.max(0.6, p.x))
+      const z = Math.min(room.d - 0.6, Math.max(0.6, p.z))
+      const existing = remoteStanding.get(key)
+      if (existing) {
+        existing.patron = p
+        existing.group.position.set(x, 0, z)
+        continue
+      }
+      const person = buildPerson(
+        {
+          hair: p.hair,
+          sweater: p.sweater,
+          sweaterDeep: `#${new THREE.Color(p.sweater).multiplyScalar(0.78).getHexString()}`,
+          skin: p.skin,
+          hairStyle: p.hairStyle,
+          glasses: p.glasses,
+        },
+        'stand'
+      )
+      person.group.position.set(x, 0, z)
+      person.group.rotation.y = Math.PI * 0.8
+      person.group.userData.remoteKey = key
+      group.add(person.group)
+      remoteStanding.set(key, { group: person.group, animate: makeIdleAnimator(person, Math.random() * 6), patron: p })
     }
   }
 
@@ -765,15 +832,13 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
 
   function spawnSims() {
     if (!visiting) return
+    // DETERMINISTIC seating: every client must see the same room, so sims
+    // take free seats in authored order (never shuffled)
     const free = seatRefs().filter((s) => !occupants.has(s.key))
-    for (let i = free.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[free[i], free[j]] = [free[j], free[i]]
-    }
     visiting.sims.forEach((sim, i) => {
       if (i >= free.length) return
       const occ = spawnSitter(free[i], sim)
-      occ.sitSince = Date.now() - (12 + Math.random() * 110) * 60000
+      occ.sitSince = Date.now() - (12 + (i * 37) % 110) * 60000
     })
   }
 
@@ -901,12 +966,13 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
 
   function personUnderRay(ray: THREE.Raycaster): THREE.Group | null {
     const people = [...occupants.values()].map((o) => o.group)
+    for (const r of remoteStanding.values()) people.push(r.group)
     if (standing) people.push(standing.group)
     if (!people.length) return null
     const hits = ray.intersectObjects(people, true)
     if (!hits.length) return null
     let o: THREE.Object3D | null = hits[0].object
-    while (o && !o.userData.occKey && !o.userData.player) o = o.parent
+    while (o && !o.userData.occKey && !o.userData.player && !o.userData.remoteKey) o = o.parent
     return (o as THREE.Group) ?? null
   }
 
@@ -991,6 +1057,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
         const g = hov.group
         let text = ''
         if (g.userData.player) text = "this is you — drag to move ♪"
+        else if (g.userData.remoteKey) text = 'say hi ♪'
         else if (g.userData.occKey) text = occupants.get(g.userData.occKey)?.persona ? 'say hi ♪' : 'this is you'
         else if (g.userData.pkg) text = 'open the package ♪'
         else if (g.userData.uid) {
@@ -1105,13 +1172,19 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     }
     // people: open their profile card (any mode)
     const people = [...occupants.values()].map((o) => o.group)
+    for (const r of remoteStanding.values()) people.push(r.group)
     if (standing) people.push(standing.group)
     if (people.length) {
       const occHits = ray.intersectObjects(people, true)
       if (occHits.length) {
         let o: THREE.Object3D | null = occHits[0].object
-        while (o && !o.userData.occKey && !o.userData.player) o = o.parent
+        while (o && !o.userData.occKey && !o.userData.player && !o.userData.remoteKey) o = o.parent
         if (o) {
+          if (o.userData.remoteKey) {
+            const r = remoteStanding.get(o.userData.remoteKey)
+            if (r) cb.onPatronCard(remoteCard(r.patron, r.patron.since), screenX, screenY)
+            return true
+          }
           // double-tapping yourself spins you around instead of re-opening the card
           const isSelf = o.userData.player || !occupants.get(o.userData.occKey)?.persona
           if (isSelf && clicksOn('self') >= 2) {
@@ -1239,6 +1312,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       shell?.update(dt)
       for (const li of live.values()) li.built.update?.(dt, t)
       for (const o of occupants.values()) o.animate(dt, t)
+      for (const r of remoteStanding.values()) r.animate(dt, t)
       standing?.animate(dt, t)
       // carried: dangle gently while held
       if (standing && dragState) standing.group.rotation.z = Math.sin(t * 6) * 0.06
@@ -1371,16 +1445,39 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
           })
         else out.push({ name: myName, x: p.x, y: p.y + 1.78, z: p.z, color: myColor, real: false, lv: myLv })
       }
+      for (const r of remoteStanding.values()) {
+        const p = r.group.position
+        out.push({
+          name: r.patron.name,
+          x: p.x,
+          y: p.y + 2.42,
+          z: p.z,
+          color: r.patron.nameColor,
+          real: true,
+          lv: r.patron.level,
+        })
+      }
       if (standing) {
         const p = standing.group.position
         out.push({ name: myName, x: p.x, y: p.y + 2.42, z: p.z, color: myColor, real: false, lv: myLv })
       }
       return out
     },
+    /** Where the player is right now (seat or standing spot), for presence. */
+    getPlayerPos(): { x: number; z: number } | null {
+      if (session) {
+        const occ = occupants.get(session.seatKey)
+        if (occ) return { x: occ.group.position.x, z: occ.group.position.z }
+      }
+      if (standing) return { x: standing.group.position.x, z: standing.group.position.z }
+      return null
+    },
     /** World anchor above a sim's head, for chat bubbles. */
     getSimAnchor(name: string): THREE.Vector3 | null {
       for (const o of occupants.values())
         if (o.persona?.name === name) return o.group.position.clone().add(new THREE.Vector3(0, 1.9, 0))
+      for (const r of remoteStanding.values())
+        if (r.patron.name === name) return r.group.position.clone().add(new THREE.Vector3(0, 2.6, 0))
       return null
     },
     /** World position just above the player's head (for floaters). */

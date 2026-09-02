@@ -170,17 +170,20 @@ export function buildUI(cb: UICallbacks) {
   modeWin.innerHTML = `
     <div class="y2k-titlebar"><span class="tb-dots"><i></i><i></i></span><span class="tb-title">café controls</span><button class="tb-close">×</button></div>
     <div class="y2k-body mode-buttons">
-      <button class="glossy-btn mode-btn active" data-mode="day">☀ day</button>
-      <button class="glossy-btn mode-btn" data-mode="dusk">☁ dusk</button>
-      <button class="glossy-btn mode-btn" data-mode="night">☾ night</button>
-      <label class="lights-row">
-        <span class="lights-label">✦ room</span>
-        <input type="range" class="lights-slider" data-light="room" min="0" max="100" value="100" />
-      </label>
-      <label class="lights-row">
-        <span class="lights-label">✦ lamps</span>
-        <input type="range" class="lights-slider" data-light="furniture" min="0" max="100" value="50" />
-      </label>
+      <div class="mode-owner">
+        <button class="glossy-btn mode-btn active" data-mode="day">☀ day</button>
+        <button class="glossy-btn mode-btn" data-mode="dusk">☁ dusk</button>
+        <button class="glossy-btn mode-btn" data-mode="night">☾ night</button>
+        <label class="lights-row">
+          <span class="lights-label">✦ room</span>
+          <input type="range" class="lights-slider" data-light="room" min="0" max="100" value="100" />
+        </label>
+        <label class="lights-row">
+          <span class="lights-label">✦ lamps</span>
+          <input type="range" class="lights-slider" data-light="furniture" min="0" max="100" value="50" />
+        </label>
+      </div>
+      <div class="ed-note mode-ro-note hidden">the owner sets the mood here ♪</div>
       <label class="lights-row">
         <span class="lights-label">♪ music</span>
         <input type="range" class="lights-slider music-slider" min="0" max="100" />
@@ -233,6 +236,12 @@ export function buildUI(cb: UICallbacks) {
     },
     openProfileCard(x: number, y: number, data?: CardData) {
       openProfileCard(ui, x, y, data)
+    },
+    /** Visiting someone: the room's mood belongs to its owner. */
+    setControlsReadOnly(ro: boolean) {
+      const owner = modeWin.querySelector('.mode-owner') as HTMLElement
+      owner.classList.toggle('mode-ro', ro)
+      modeWin.querySelector('.mode-ro-note')!.classList.toggle('hidden', !ro)
     },
   }
 }

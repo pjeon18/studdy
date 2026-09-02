@@ -236,16 +236,18 @@ body::after {
 
 /* ---------- café controls ---------- */
 /* the shared bottom-right slot: café controls / friends / chat live here, one at a time */
-.rslot-window { right: 26px; bottom: 28px; left: auto; top: auto; }
+.rslot-window { right: 118px; bottom: 28px; left: auto; top: auto; max-height: calc(100vh - 60px); }
 .mode-window { width: 190px; }
 .cafe-tab {
   position: fixed;
   right: 10px;
-  top: 278px;
+  top: 164px;
   z-index: 30;
   padding-right: 12px;
 }
 .mode-buttons { display: flex; flex-direction: column; gap: 7px; }
+.mode-owner { display: flex; flex-direction: column; gap: 7px; }
+.mode-owner.mode-ro { opacity: 0.45; pointer-events: none; }
 .mode-btn { width: 100%; text-align: center; }
 .mode-btn.active {
   border-image-source: var(--px-btn-active);
@@ -433,6 +435,8 @@ body::after {
 .dir-meta b { display: block; font-size: 12px; }
 .dir-meta i { font-style: normal; font-size: 11px; color: var(--ink-2); }
 .dir-meta .dir-live { display: block; color: #2E9E5B; font-weight: 700; }
+.dir-name .dir-in { color: #2E9E5B; font-weight: 700; }
+.dir-stars { display: block; font-size: 11px; color: var(--butter); text-shadow: 1px 1px 0 rgba(74, 50, 38, 0.35); }
 .dir-meta .dir-live.hidden { display: none; }
 .dir-real.hidden { display: none; }
 .dir-real { margin-bottom: 8px; }
@@ -537,7 +541,7 @@ textarea.px-input { resize: none; line-height: 1.35; }
 .friends-tab {
   position: fixed;
   right: 10px;
-  top: 324px;
+  top: 210px;
   z-index: 30;
   padding-right: 12px;
 }
@@ -570,8 +574,10 @@ textarea.px-input { resize: none; line-height: 1.35; }
 
 /* ---------- deliveries queue ---------- */
 .deliv-window {
-  top: 130px;
-  right: 30px;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  right: auto;
   width: 216px;
 }
 .deliv-list { display: flex; flex-direction: column; gap: 5px; }
@@ -644,21 +650,21 @@ textarea.px-input { resize: none; line-height: 1.35; }
 .chat-tab {
   position: fixed;
   right: 10px;
-  top: 370px;
+  top: 256px;
   z-index: 30;
   padding-right: 12px;
 }
 .goals-tab {
   position: fixed;
   right: 10px;
-  top: 232px;
+  top: 118px;
   z-index: 30;
   padding-right: 12px;
 }
 .clubs-tab {
   position: fixed;
   right: 10px;
-  top: 416px;
+  top: 302px;
   z-index: 30;
   padding-right: 12px;
 }

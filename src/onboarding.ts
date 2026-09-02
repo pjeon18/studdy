@@ -129,6 +129,14 @@ export function runOnboarding(ui: HTMLElement, game: Game, onDone: () => void) {
     let tables = 0
     let seatsN = 0
     const paint = () => {
+      // soft-lock guard: you must always be able to afford what's still needed
+      let shortfall = 0
+      if (tables < 1) shortfall += CATALOG['table-s'].price
+      if (seatsN < 1) shortfall += CATALOG.stool.price
+      if (shortfall > store.save.beans) {
+        store.addBeans(shortfall - store.save.beans)
+        toast('the café fairy spotted you a few beans ♪')
+      }
       beansEl.innerHTML = `${store.save.beans} ${beanImg(13)}`
       const needT = tables < 1 ? '1 table' : ''
       const needS = seatsN < 1 ? '1 seat' : ''

@@ -25,6 +25,9 @@ export interface PatronState {
   level: number
   /** Seat they're on in the current café (null = wandering). */
   seatKey: string | null
+  /** Where they're standing when not seated (room coords). */
+  x: number
+  z: number
   napkin: string
   headphones: boolean
   /** Epoch ms when they sat down (earliest claim wins a contested seat). */
@@ -78,6 +81,8 @@ function myState(): PatronState {
     nameColor: a.nameColor && HEX.test(a.nameColor) ? a.nameColor : '#FFFFFF',
     level: store.levelInfo().level,
     seatKey: null,
+    x: 0,
+    z: 0,
     napkin: '',
     headphones: true,
     since: Date.now(),
@@ -107,6 +112,8 @@ function cleanPatron(key: string, raw: unknown): RemotePatron | null {
     nameColor: color(r.nameColor, '#FFFFFF'),
     level: typeof r.level === 'number' && isFinite(r.level) ? Math.min(999, Math.max(1, Math.round(r.level))) : 1,
     seatKey: typeof r.seatKey === 'string' ? r.seatKey.slice(0, 48) : null,
+    x: typeof r.x === 'number' && isFinite(r.x) ? Math.min(80, Math.max(0, r.x)) : 0,
+    z: typeof r.z === 'number' && isFinite(r.z) ? Math.min(80, Math.max(0, r.z)) : 0,
     napkin: str(r.napkin, 40),
     headphones: r.headphones !== false,
     since: typeof r.since === 'number' && isFinite(r.since) ? r.since : Date.now(),
@@ -137,24 +144,36 @@ function emitPatrons() {
   const out: RemotePatron[] = []
   for (const [key, metas] of Object.entries(state)) {
     if (key === me) continue
-    const p = cleanPatron(key, metas[0])
+    // the LAST meta is the freshest when a client re-tracked mid-sync
+    const p = cleanPatron(key, metas[metas.length - 1])
     if (p) out.push(p)
   }
   handlers.onPatrons(out)
 }
 
-function ensureJoined() {
+let joinSeq = 0
+async function ensureJoined() {
   const supa = getSupabase()
   if (!supa || !handlers) return
   const topic = topicFor(wantPlace)
   if (!topic) return
   if (channel && joinedPlace === topic) return
+  const seq = ++joinSeq
 
   if (channel) {
-    supa.removeChannel(channel)
+    // WAIT for the old channel to fully leave: recreating a topic you've
+    // used before (home → café → home) while teardown is still in flight
+    // hands you the dying channel back — and you go silently deaf
+    const old = channel
     channel = null
     subscribed = false
+    try {
+      await supa.removeChannel(old)
+    } catch {
+      /* it was already gone */
+    }
   }
+  if (seq !== joinSeq) return // a newer move superseded this one
   joinedPlace = topic
   const ch = supa.channel(`studdy:${topic}`, {
     config: { presence: { key: myKey() ?? tabNonce }, broadcast: { self: false } },
@@ -172,8 +191,22 @@ function ensureJoined() {
   })
   ch.subscribe((status) => {
     if (channel !== ch) return
-    subscribed = status === 'SUBSCRIBED'
-    if (subscribed) ch.track(myState())
+    if (status === 'SUBSCRIBED') {
+      subscribed = true
+      ch.track(myState())
+      return
+    }
+    subscribed = false
+    // the room can go quiet under us (server closed the topic, network blip)
+    // — rejoin quietly instead of going deaf for the rest of the session
+    if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      setTimeout(() => {
+        if (channel === ch) {
+          joinedPlace = undefined
+          ensureJoined()
+        }
+      }, 2000)
+    }
   })
 }
 
@@ -201,9 +234,23 @@ function ensureLobby() {
     handlers.onLobby(counts)
   })
   ch.subscribe((status) => {
-    if (lobby === ch && status === 'SUBSCRIBED') {
+    if (lobby !== ch) return
+    if (status === 'SUBSCRIBED') {
       lobbyTracked = ''
       trackLobby()
+      return
+    }
+    if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      setTimeout(async () => {
+        if (lobby !== ch) return
+        lobby = null
+        try {
+          await supa.removeChannel(ch)
+        } catch {
+          /* already gone */
+        }
+        ensureLobby()
+      }, 2000)
     }
   })
 }
@@ -219,6 +266,17 @@ function trackLobby() {
 /** Where a user is right now: a place token, or null when offline. */
 export function whereIs(userId: string): string | null {
   return lobbyByUid.get(userId) ?? null
+}
+
+/** Diagnostics for the debug console. */
+export function presenceDebug() {
+  return {
+    wantPlace,
+    joinedPlace,
+    subscribed,
+    channelState: (channel as unknown as { state?: string })?.state ?? 'none',
+    others: channel ? Object.keys(channel.presenceState()).length : -1,
+  }
 }
 
 /** Boot the presence layer. Safe to call always; waits for the cloud session. */

@@ -24,7 +24,7 @@ import * as store from './store'
 import { CATALOG } from './items'
 import { needsOnboarding, runOnboarding } from './onboarding'
 import { initCloud, getSupabase, cloudUser } from './cloud'
-import { initPresence, setPlace, updateState } from './presence'
+import { initPresence, setPlace, updateState, presenceDebug } from './presence'
 import { initSocial, fetchCafeByUser, fetchCafeByHandle, requestFriend, logStudy, giftBean } from './social'
 import { toast } from './ui'
 import { openGallery, openDrawPad, seedNotes, closeGuestbook } from './guestbook'
@@ -253,15 +253,20 @@ if (isShowcase) {
       closeSalon()
       closeProfileCard()
       editor?.setVisiting(cafe)
+      ui.setControlsReadOnly(!!cafe) // only the owner sets the room's mood
       setPlace(cafe?.id ?? null) // my presence follows me
+      const pos = game?.getPlayerPos()
+      if (pos) updateState(pos) // …standing at the door
     },
     onSession: (s) => {
       editor?.setSession(s)
-      updateState(
-        s
+      const pos = game?.getPlayerPos()
+      updateState({
+        ...(s
           ? { seatKey: s.seatKey, napkin: s.napkin, headphones: s.headphones, since: s.startedAt }
-          : { seatKey: null, napkin: '' }
-      )
+          : { seatKey: null, napkin: '' }),
+        ...(pos ?? {}),
+      })
     },
     onFocused: (minutes, placeId) => {
       // studying at a real person's café pays its owner for hosting you
@@ -378,11 +383,15 @@ if (game) {
     },
     onLobby: (counts) => editor?.setLiveCounts(counts),
   })
-  // napkin edits and headphone flips ride along every few seconds
+  // napkin edits, headphone flips, and where you're standing ride along
   setInterval(() => {
     const s = game!.getSession()
-    if (s) updateState({ napkin: s.napkin, headphones: s.headphones })
-  }, 6000)
+    const pos = game!.getPlayerPos()
+    updateState({
+      ...(s ? { napkin: s.napkin, headphones: s.headphones } : {}),
+      ...(pos ?? {}),
+    })
+  }, 4000)
   // a new look or name shows up for everyone right away
   store.on('avatar', () => updateState({}))
   store.on('info', () => updateState({}))
@@ -517,6 +526,10 @@ renderer.domElement.addEventListener('pointerup', (e) => {
     charDrag = false
     setRayFromEvent(e)
     if (!game.endDrag()) game.sceneClick(raycaster, e.clientX, e.clientY) // it was a tap: open the card
+    else {
+      const pos = game.getPlayerPos()
+      if (pos) updateState(pos) // tell the room where you set yourself down
+    }
     return
   }
   if (dragDist > 6 || pointers.size > 1) return // it was a drag or pinch, not a click
@@ -721,6 +734,7 @@ setInterval(() => {
   scene,
   step,
   camera,
+  presenceDebug,
   zoom(f: number, cx = TARGET.x, cy = 3.2, cz = TARGET.z) {
     TARGET.set(cx, cy, cz)
     placeCamera()

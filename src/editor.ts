@@ -102,6 +102,10 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     const wasHidden = dirWin.classList.contains('hidden')
     setMode('view')
     showLeft(wasHidden ? dirWin : null)
+    if (wasHidden) {
+      renderRealCafes()
+      renderLeaders()
+    }
   })
   barBtn('home').addEventListener('click', () => game.visit(null))
 
@@ -546,16 +550,18 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     else toast('their café is closed right now ♪')
   }
 
-  /** Other people's open cafés, freshest first. */
+  /** Other people's open cafés — owners who are home right now come first. */
   const renderRealCafes = async () => {
     const cafes = await listOpenCafes()
     dirReal.classList.toggle('hidden', !cafes.length)
     dirRealList.textContent = ''
+    const ownerIn = (uid: string) => whereIs(uid) === `user:${uid}`
+    cafes.sort((a, b) => Number(ownerIn(b.userId)) - Number(ownerIn(a.userId)))
     for (const c of cafes) {
       const row = document.createElement('div')
       row.className = 'dir-row'
       row.innerHTML = `
-        <span class="dir-name">${esc(c.name)}'s café<i>@${esc(c.handle)}</i></span>
+        <span class="dir-name">${esc(c.name)}'s café<i>@${esc(c.handle)}${ownerIn(c.userId) ? ' · <b class="dir-in">owner is in ♪</b>' : ''}</i></span>
         <span class="dir-meta"><b class="dir-stars">${'★'.repeat(starsFor(c.minutes))}</b><i class="dir-live hidden" data-cafe="user:${esc(c.userId)}"></i></span>
       `
       const go = document.createElement('button')

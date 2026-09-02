@@ -678,3 +678,33 @@ Audited ahead of real accounts; findings fixed:
   gifts automatically, +5xp to the giver). Directory gains "top studiers ♪"
   (xp leaderboard with visit buttons) + star ratings on real cafés — all
   quietly dormant until the migration runs.
+
+### Two-player field-test fixes (2026-09-01)
+- Onboarding soft-lock: the stock-the-café step tops your beans up to the
+  cheapest missing requirement (table 15 / stool 8) so you can never strand
+  yourself mid-wizard.
+- Same room everywhere: sims now take free seats in authored order (the
+  per-client shuffle made two visitors see different rooms).
+- "She couldn't see me": standing visitors are now rendered — presence
+  carries x/z (clamped inbound), remote wanderers render as standing
+  chibis at their true tile, clickable with cards/tags/bubbles.
+- THE deafness bug (reproduced, fixed, verified): rejoining a previously
+  used channel topic (home → café → home) raced the old channel's async
+  teardown and could server-close the OTHER client's channel; channels now
+  await teardown before rejoining AND self-heal on CLOSED/CHANNEL_ERROR/
+  TIMED_OUT (2s rejoin). Verified: after a café round-trip both tabs stay
+  subscribed and mutually visible.
+- Visitors can't touch the room mood: café controls (day/dusk/night +
+  light sliders) grey out while visiting ("the owner sets the mood here ♪");
+  music volume + sound stay local.
+- Layout: right tabs ride directly under the sprint clock (goals first,
+  locked clubs last); rslot windows open BESIDE the tab column (right:
+  118px) so buttons never cover accept/claim buttons; deliveries window
+  moved top-center.
+- Directory: ✈ visit button now renders the live sections too (only the
+  door path did); "owner is in ♪" pill + online-first sort for real cafés.
+- Verified live post-phase4.sql: real cafés (@caroline, @paul, star
+  ratings), top-studiers leaderboard (ghuh 196xp · caroline 99xp · paul),
+  phase-4 RLS matrix green (signed-out denied; self-log, forged visitor,
+  oversize minutes, self-gift, forged sender, 99-bean gifts, gift deletion
+  all rejected).
