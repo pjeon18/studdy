@@ -125,7 +125,7 @@ export class Lighting {
   t = 1
   // room lights boot fully "on" (slider max); the slider dims from there.
   // 3 = the bright new max; the old max (2) sits at the slider's two-thirds mark.
-  private roomMult = 2.1
+  private roomMult = 1.05 // the comfy middle; main applies the stored pref on boot
   private furnMult = 1
   private lastE = 1
   private scene: THREE.Scene

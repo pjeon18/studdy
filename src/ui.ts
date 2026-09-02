@@ -178,7 +178,7 @@ export function buildUI(cb: UICallbacks) {
         <button class="glossy-btn mode-btn" data-mode="night">☾ night</button>
         <label class="lights-row">
           <span class="lights-label">✦ room</span>
-          <input type="range" class="lights-slider" data-light="room" min="0" max="100" value="100" />
+          <input type="range" class="lights-slider" data-light="room" min="0" max="100" value="50" />
         </label>
         <label class="lights-row">
           <span class="lights-label">✦ lamps</span>
@@ -209,14 +209,22 @@ export function buildUI(cb: UICallbacks) {
     })
   })
   modeWin.querySelectorAll<HTMLInputElement>('.lights-slider').forEach((slider) => {
+    // sliders remember where you left them (default: the comfy middle)
+    const key =
+      slider.dataset.light === 'room' ? 'studdy-room-light' : slider.dataset.light === 'furniture' ? 'studdy-lamp-light' : null
+    if (key) {
+      const stored = localStorage.getItem(key)
+      if (stored !== null) slider.value = stored
+    }
     slider.addEventListener('input', () => {
+      if (key) localStorage.setItem(key, slider.value)
       // the room maxes at ×2.1 — the sweet spot Paul picked lands at 100%
       if (slider.dataset.light === 'room') cb.onRoomLight((Number(slider.value) / 100) * 2.1)
       else if (slider.dataset.light === 'furniture') cb.onFurnitureLight(Number(slider.value) / 50)
     })
   })
   const bulbBtns = modeWin.querySelectorAll<HTMLButtonElement>('.bulb-btn')
-  const storedTone = localStorage.getItem('studdy-bulbs') === 'cool' ? 'cool' : 'warm'
+  const storedTone = localStorage.getItem('studdy-bulbs') === 'warm' ? 'warm' : 'cool' // cool is the default
   bulbBtns.forEach((b) => {
     b.classList.toggle('active', b.dataset.bulb === storedTone)
     b.addEventListener('click', () => {

@@ -353,8 +353,10 @@ const ui = buildUI({
   },
 })
 lighting.onBackground = (a, b) => ui.setBackground(a, b)
-// remembered bulb temperature applies on boot
-if (localStorage.getItem('studdy-bulbs') === 'cool') lighting.setBulbTone('cool')
+// remembered lighting prefs (defaults: middle brightness, cool bulbs)
+lighting.setRoomLight((Number(localStorage.getItem('studdy-room-light') ?? 50) / 100) * 2.1)
+lighting.setFurnitureLight(Number(localStorage.getItem('studdy-lamp-light') ?? 50) / 50)
+lighting.setBulbTone(localStorage.getItem('studdy-bulbs') === 'warm' ? 'warm' : 'cool')
 if (game) {
   editor = buildEditor(document.getElementById('ui')!, game)
   editor.setCapacity(game.capacity())

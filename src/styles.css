@@ -237,7 +237,9 @@ body::after {
 /* ---------- café controls ---------- */
 /* the shared bottom-right slot: café controls / friends / chat live here, one at a time */
 .rslot-window { right: 118px; bottom: 28px; left: auto; top: auto; max-height: calc(100vh - 60px); }
-.mode-window { width: 190px; }
+.mode-window { width: 202px; }
+.bulb-row { gap: 5px; }
+.bulb-row .glossy-btn { font-size: 12px; padding: 0 5px 2px; }
 .cafe-tab {
   position: fixed;
   right: 10px;

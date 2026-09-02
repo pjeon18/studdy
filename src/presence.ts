@@ -142,11 +142,13 @@ function emitPatrons() {
   const me = myKey()
   const state = channel.presenceState<PatronState>()
   const out: RemotePatron[] = []
+  const myUid = cloudUser()?.id
   for (const [key, metas] of Object.entries(state)) {
     if (key === me) continue
     // the LAST meta is the freshest when a client re-tracked mid-sync
     const p = cleanPatron(key, metas[metas.length - 1])
-    if (p) out.push(p)
+    // never render your own other tabs/devices — one ghuh is enough
+    if (p && p.uid !== myUid) out.push(p)
   }
   handlers.onPatrons(out)
 }
