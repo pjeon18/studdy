@@ -796,3 +796,19 @@ Audited ahead of real accounts; findings fixed:
   ceiling wash, and ambient between cozy warm (#FFDCA6) and clean cool
   (#E7F0F8) temperatures; persisted per browser, applied on boot, sits in
   the owner-only section so visitors can't change a café's bulbs.
+
+### Mobile pass + PWA (2026-09-02)
+- Installable: public/manifest.webmanifest + icons (192/512 app, 180 apple-
+  touch, rendered from the game's own logo on a checkerboard tile),
+  theme-color, description, and OG tags (og:image = the 512 icon) in
+  index.html; viewport-fit=cover.
+- Responsive layout (@media max-width 720px): brand/clock/pill shrink to
+  the corners, the right tab column tightens under the clock, rslot windows
+  open full-width beside the tabs (right:76px, own scroll), editor/
+  deliveries/settings sheets fit the viewport. Verified at 375×812: room
+  frames large, goals window fully usable, tabs reachable.
+- Portrait camera fit: aspect < 0.72 zooms in 1.5× (halfH ×0.66) so the
+  room fills the screen instead of sitting tiny; drag-to-pan covers the
+  slight horizontal crop.
+- Perf: coarse-pointer devices skip the 1.5× supersampling (native dpr
+  only) in crisp mode.

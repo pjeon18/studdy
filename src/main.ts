@@ -52,7 +52,9 @@ function applyLook(look: Look) {
     renderer.setPixelRatio(1 / 1.5)
     renderer.domElement.style.imageRendering = 'pixelated'
   } else {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio * 1.5, 3))
+    // phones already render at high dpr — skip the supersampling there
+    const coarse = window.matchMedia('(pointer: coarse)').matches
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio * (coarse ? 1 : 1.5), 3))
     renderer.domElement.style.imageRendering = ''
   }
   renderer.setSize(window.innerWidth, window.innerHeight)
@@ -89,6 +91,9 @@ function fitFrustum() {
   const aspect = window.innerWidth / window.innerHeight
   let halfH = NEED_H
   if (NEED_W / aspect > NEED_H) halfH = NEED_W / aspect
+  // portrait phones: fitting the full room width leaves it tiny, so zoom in
+  // and let drag-to-pan cover the slight horizontal crop
+  if (aspect < 0.72) halfH = Math.max(NEED_H, halfH * 0.66)
   halfH /= zoomF
   camera.left = -halfH * aspect
   camera.right = halfH * aspect

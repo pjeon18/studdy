@@ -1065,3 +1065,45 @@ textarea.px-input { resize: none; line-height: 1.35; }
 .set-acct-box .px-input { flex: 1; min-width: 0; }
 
 .ob-backdrop { z-index: 79; }
+
+/* ---------- little screens: the phone layout ---------- */
+@media (max-width: 720px) {
+  .brand { top: 8px; left: 10px; }
+  .wordmark { max-width: 34vw; height: auto; }
+  .brand-sub { font-size: 12px; margin-top: 6px; border-width: 7px; }
+  .player-pill { top: 6px; right: 8px; gap: 6px; font-size: 13px; }
+  .clock-pill { top: 34px; right: 8px; padding: 1px 6px; border-width: 9px; }
+  .clock-time { font-size: 16px; min-width: 50px; }
+  .clock-label { font-size: 12px; }
+
+  /* the right tab column tightens up under the clock */
+  .rslot-tab { font-size: 13px; padding: 0 6px 3px 5px; }
+  .goals-tab { top: 88px; }
+  .cafe-tab { top: 126px; }
+  .friends-tab { top: 164px; }
+  .chat-tab { top: 202px; }
+  .clubs-tab { top: 240px; }
+
+  /* windows fill the space beside the tabs instead of hiding under them */
+  .rslot-window {
+    right: 76px;
+    bottom: 12px;
+    max-width: calc(100vw - 88px);
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+  }
+  .goals-window, .friends-window { width: calc(100vw - 88px); }
+  .friends-list { max-height: 38vh; }
+  .goals-body { max-height: none; }
+
+  .editor-window { left: 6px; top: 150px; width: min(232px, 58vw); max-height: calc(100vh - 150px - 92px); }
+  .deliv-window { top: 8px; width: 190px; font-size: 12px; }
+
+  .edit-bar { gap: 5px; flex-wrap: wrap; }
+  .edit-bar .glossy-btn { font-size: 13px; padding: 0 6px 3px; }
+  .hint { font-size: 11px; }
+  .session-hud { max-width: 88vw; }
+  .settings-window { max-width: 94vw; width: 320px; }
+  .name-tag { font-size: 11px; }
+  .dbg-window { bottom: 96px; width: 180px; }
+}
