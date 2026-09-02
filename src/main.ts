@@ -608,6 +608,33 @@ hoverLabelEl.style.display = 'none'
 document.body.appendChild(hoverLabelEl)
 const hoverV = new THREE.Vector3()
 
+// minecraft-style name tags: a pooled DOM label over every head
+const tagPool: HTMLDivElement[] = []
+function updateNameTags() {
+  const tags = game?.getNameTags() ?? []
+  while (tagPool.length < tags.length) {
+    const el = document.createElement('div')
+    el.className = 'name-tag'
+    document.body.appendChild(el)
+    tagPool.push(el)
+  }
+  for (let i = 0; i < tagPool.length; i++) {
+    const el = tagPool[i]
+    const t = tags[i]
+    if (!t || !t.name) {
+      el.style.display = 'none'
+      continue
+    }
+    el.style.display = ''
+    if (el.textContent !== t.name) el.textContent = t.name
+    el.classList.toggle('self', t.self)
+    el.classList.toggle('real', t.real && !t.self)
+    hoverV.set(t.x, t.y, t.z).project(camera)
+    el.style.left = `${(hoverV.x * 0.5 + 0.5) * window.innerWidth}px`
+    el.style.top = `${(-hoverV.y * 0.5 + 0.5) * window.innerHeight}px`
+  }
+}
+
 const clockT = new THREE.Clock()
 let lastFrame = 0
 function step(dt: number) {
@@ -625,6 +652,7 @@ function step(dt: number) {
   } else {
     hoverLabelEl.style.display = 'none'
   }
+  updateNameTags()
   lighting.update(dt)
   renderFrame()
 }

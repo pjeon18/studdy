@@ -955,6 +955,31 @@ textarea.px-input { resize: none; line-height: 1.35; }
   white-space: nowrap;
 }
 
+/* minecraft-style name tags over every head — quiet, always there */
+.name-tag {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  font-family: 'Studdy Digits', 'Pixelify Sans', monospace;
+  font-weight: 700;
+  font-size: 11px;
+  color: #FFFFFF;
+  text-shadow: 1px 1px 0 rgba(42, 30, 20, 0.75), -1px -1px 0 rgba(42, 30, 20, 0.45);
+  opacity: 0.92;
+  pointer-events: none;
+  z-index: 4;
+  white-space: nowrap;
+}
+.name-tag.self { color: var(--pink-soft); }
+.name-tag.real::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  background: #2E9E5B;
+  margin-right: 4px;
+  vertical-align: 1px;
+}
+
 /* ---------- settings (modal: nothing else clickable while open) ---------- */
 .gear-btn { padding: 0 7px 4px; }
 .modal-backdrop {

@@ -11,7 +11,7 @@ import { toast, drawPortrait, collapsible, toggleRightWindow, esc } from './ui'
 import { beanImg } from './pixelui'
 import { sfx, setStation, STATIONS, isEnabled, setEnabled, setMusicVolume, getMusicVolume, type Station } from './sounds'
 import { capacityOfPlaced, type Game, type Session } from './game'
-import { cloudConfigured, cloudUser, linkEmail, signOut } from './cloud'
+import { cloudConfigured, cloudUser, linkEmail, signOut, isDev } from './cloud'
 import { fetchCafeByUser, listOpenCafes, listFriends, acceptRequest, declineRequest, getMyHandle, shareUrl } from './social'
 import { whereIs } from './presence'
 import type { FloorStyle, WallStyle } from './types'
@@ -838,15 +838,19 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     if (!friendsWin.classList.contains('hidden')) renderReal()
   })
 
-  // ---------- debug ----------
-  if (new URLSearchParams(location.search).has('debug')) {
+  // ---------- debug / dev panel ----------
+  // built for everyone, shown for ?debug (local poking) or a dev account
+  {
     const dbg = document.createElement('div')
-    dbg.className = 'y2k-window editor-window dbg-window'
+    dbg.className = 'y2k-window editor-window dbg-window hidden'
     dbg.innerHTML = `
       <div class="y2k-titlebar"><span class="tb-dots"><i></i><i></i></span><span class="tb-title">debug</span></div>
       <div class="y2k-body" style="display:flex;gap:6px;flex-direction:column">
         <button class="glossy-btn" data-d="grant">+5 of everything</button>
         <button class="glossy-btn" data-d="beans">+100 beans</button>
+        <button class="glossy-btn hidden" data-dev="1" data-d="rich">+10,000 beans</button>
+        <button class="glossy-btn hidden" data-dev="1" data-d="infinite">∞ beans</button>
+        <button class="glossy-btn hidden" data-dev="1" data-d="stock">+99 of everything</button>
         <button class="glossy-btn" data-d="deliver">deliver packages now</button>
         <button class="glossy-btn" data-d="skip">⏩ skip to next phase</button>
         <button class="glossy-btn" data-d="reset">reset save</button>
@@ -857,6 +861,9 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
       const d = ((e.target as HTMLElement).closest('button') as HTMLElement)?.dataset.d
       if (d === 'grant') store.grantAll()
       if (d === 'beans') store.grantBeans()
+      if (d === 'rich') store.grantBeans(10_000)
+      if (d === 'infinite') store.grantBeans(Math.max(0, 999_999 - store.save.beans))
+      if (d === 'stock') store.grantAll(99)
       if (d === 'deliver') store.deliverNow()
       if (d === 'skip') {
         clock.skipPhase()
@@ -864,6 +871,18 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
       }
       if (d === 'reset') store.resetSave()
     })
+    const debugParam = new URLSearchParams(location.search).has('debug')
+    if (debugParam) dbg.classList.remove('hidden')
+    // the dev account gets the full panel wherever they're signed in —
+    // the session arrives async, so check gently until it settles
+    const devCheck = setInterval(() => {
+      if (!isDev()) return
+      clearInterval(devCheck)
+      dbg.classList.remove('hidden')
+      ;(dbg.querySelector('.tb-title') as HTMLElement).textContent = 'dev ♪'
+      dbg.querySelectorAll('[data-dev]').forEach((b) => b.classList.remove('hidden'))
+    }, 2000)
+    setTimeout(() => clearInterval(devCheck), 60_000) // stop checking after a minute
   }
 
   refreshRoom()

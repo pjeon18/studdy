@@ -1248,6 +1248,21 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       sfx.tick()
     },
     getHoverInfo: () => hoverInfo,
+    /** Floating name tags: one per person in the room (minecraft-style). */
+    getNameTags(): { name: string; x: number; y: number; z: number; self: boolean; real: boolean }[] {
+      const out: { name: string; x: number; y: number; z: number; self: boolean; real: boolean }[] = []
+      const myName = store.save.info.name || 'you'
+      for (const o of occupants.values()) {
+        const p = o.group.position
+        if (o.persona) out.push({ name: o.persona.name, x: p.x, y: p.y + 1.62, z: p.z, self: false, real: !!o.persona.real })
+        else out.push({ name: myName, x: p.x, y: p.y + 1.62, z: p.z, self: true, real: true })
+      }
+      if (standing) {
+        const p = standing.group.position
+        out.push({ name: myName, x: p.x, y: p.y + 2.28, z: p.z, self: true, real: true })
+      }
+      return out
+    },
     /** World anchor above a sim's head, for chat bubbles. */
     getSimAnchor(name: string): THREE.Vector3 | null {
       for (const o of occupants.values())

@@ -91,6 +91,20 @@ export function getSupabase(): SupabaseClient | null {
   return session ? supa : null
 }
 
+// Paul's accounts: the verified magic-link email (stable across devices)
+// plus the original guest uid. Dev mode is a client-side convenience —
+// the game economy lives in the save doc, so this grants nothing on the
+// server and RLS still treats a dev like any other account.
+const DEV_EMAILS = ['pjeon1804@gmail.com']
+const DEV_UIDS = ['b5626d51-0488-43b1-85a6-c2a5643638c1']
+
+/** True when the signed-in account is a dev (shows the dev panel). */
+export function isDev(): boolean {
+  const u = cloudUser()
+  if (!u) return false
+  return DEV_UIDS.includes(u.id) || (!!u.email && DEV_EMAILS.includes(u.email.toLowerCase()))
+}
+
 const MAX_DOC_BYTES = 1_500_000 // the DB enforces 2MB; stay well under it
 
 /** Queue a debounced upload of the current save. */
