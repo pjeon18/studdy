@@ -6,6 +6,7 @@ import { CATALOG, buildItem, buildPackage, footprintOf, type BuiltItem } from '.
 import { lampShadeMat, PAL, VOX } from './build'
 import { buildPerson, makeAnimator, makeIdleAnimator } from './people'
 import * as store from './store'
+import * as clock from './clock'
 import { sfx } from './sounds'
 import { toast, heartBurst, type CardData } from './ui'
 import type { DreamCafe, SimPersona } from './cafes'
@@ -812,7 +813,15 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     }
     cb.onSession(session)
     sfx.pop()
-    toast(visiting ? `studying at ${visiting.name} ♪` : 'you took a seat ♪')
+    // arriving mid-sprint gets gentler copy: settle in quietly, chat at break
+    const midSprint = clock.phase().mode === 'sprint'
+    toast(
+      visiting
+        ? midSprint
+          ? `joined mid-sprint at ${visiting.name} — chat opens at break ♪`
+          : `studying at ${visiting.name} ♪`
+        : 'you took a seat ♪'
+    )
   }
 
   function leaveSeat() {
@@ -831,10 +840,13 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     }
     // focused time is the currency: level-scaled beans (+10 xp per minute)
     if (minutes > 0) {
-      const beans = store.earnFocus(minutes)
-      cb.onFloat(`+${beans} beans`, 'earn')
+      const r = store.earnFocus(minutes)
+      cb.onFloat(`+${r.beans} beans`, 'earn')
       sfx.earn()
-      toast(`+${beans} beans for focused time ♪`)
+      toast(`+${r.beans} beans for focused time ♪`)
+      if (r.checkin) setTimeout(() => toast(`first study of the day — +${r.checkinBeans} ◍ welcome back ♪`), 1400)
+      if (r.streakAdvanced)
+        setTimeout(() => toast(`${r.streakCount} day streak ★ +${r.streakBeans} ◍ — see you tomorrow ♪`), r.checkin ? 3000 : 1400)
       // the café you studied at hosted you — its owner earns too
       cb.onFocused?.(minutes, visiting?.id ?? null)
     }
@@ -859,7 +871,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       status: session ? (session.napkin ? `"${session.napkin}"` : '"locked in ♪"') : '"just looking around ♪"',
       working: session?.napkin || '…',
       headphones: session?.headphones ?? true,
-      streak: '1 day ★',
+      streak: store.save.streak.count > 0 ? `${store.save.streak.count} day${store.save.streak.count > 1 ? 's' : ''} ★` : 'starts today ♪',
       focusedSince: session?.startedAt ?? standing?.since ?? Date.now(),
       hair: store.save.avatar.hair,
       sweater: store.save.avatar.sweater,

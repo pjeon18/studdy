@@ -127,3 +127,98 @@ export async function downloadShareCard() {
   aEl.download = `studdy-${getMyHandle() ?? 'cafe'}.png`
   aEl.click()
 }
+
+/** The weekly recap: how the week of studying actually went. */
+export async function makeWeekCard(): Promise<string> {
+  const cv = document.createElement('canvas')
+  cv.width = W
+  cv.height = H
+  const g = cv.getContext('2d')!
+  g.imageSmoothingEnabled = false
+
+  // lavender dusk checkerboard for the recap
+  g.fillStyle = '#CDBBE8'
+  g.fillRect(0, 0, W, H)
+  g.fillStyle = 'rgba(255,255,255,0.14)'
+  const sq = 90
+  for (let y = 0; y < H / sq; y++)
+    for (let x = 0; x < W / sq; x++) if ((x + y) % 2 === 0) g.fillRect(x * sq, y * sq, sq, sq)
+
+  const { url, w: lw } = await makeLogo('Studdy')
+  const logo = new Image()
+  await new Promise<void>((res, rej) => {
+    logo.onload = () => res()
+    logo.onerror = () => rej(new Error('logo'))
+    logo.src = url
+  })
+  g.drawImage(logo, (W - lw * 7) / 2, 90, lw * 7, logo.height * 7)
+
+  const cx = 90
+  const cy = 330
+  const cw = W - 180
+  const chh = 780
+  g.fillStyle = 'rgba(58,40,70,0.25)'
+  g.fillRect(cx + 14, cy + 14, cw, chh)
+  g.fillStyle = '#FFF7E8'
+  g.fillRect(cx, cy, cw, chh)
+  g.lineWidth = 8
+  g.strokeStyle = '#4A3226'
+  g.strokeRect(cx, cy, cw, chh)
+  g.fillStyle = '#FFA9C1'
+  g.fillRect(cx + 8, cy + 8, cw - 16, 84)
+  g.fillStyle = '#FFFFFF'
+  g.font = '700 44px "Studdy Digits", "Pixelify Sans", monospace'
+  g.textAlign = 'left'
+  g.fillText('my study week ♪', cx + 40, cy + 66)
+
+  const name = store.save.info.name || 'someone'
+  const minutes = store.save.goals.counters[`wk:${store.weekStamp()}:min`] ?? 0
+  const hours = Math.floor(minutes / 60)
+  const big = hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes} min`
+
+  g.fillStyle = '#8A6D52'
+  g.font = '700 40px "Studdy Digits", "Pixelify Sans", monospace'
+  g.textAlign = 'center'
+  g.fillText(`${name} focused for`, W / 2, cy + 200)
+  g.fillStyle = '#FF7A9E'
+  g.font = '700 130px "Studdy Digits", "Pixelify Sans", monospace'
+  g.fillText(big, W / 2, cy + 350)
+  g.fillStyle = '#8A6D52'
+  g.font = '700 40px "Studdy Digits", "Pixelify Sans", monospace'
+  g.fillText('this week', W / 2, cy + 420)
+
+  const rows: [string, string][] = [
+    ['streak', store.save.streak.count > 0 ? `${store.save.streak.count} days ★ (best ${store.save.streak.best})` : 'starts today ♪'],
+    ['level', `lv ${store.levelInfo().level}`],
+    ['lifetime beans', `${store.save.lifetimeBeans.toLocaleString()} ◍`],
+  ]
+  g.font = '700 38px "Studdy Digits", "Pixelify Sans", monospace'
+  rows.forEach(([k, v], i) => {
+    const ry = cy + 510 + i * 66
+    g.textAlign = 'left'
+    g.fillStyle = '#8A6D52'
+    g.fillText(k, cx + 70, ry)
+    g.textAlign = 'right'
+    g.fillStyle = '#4A3226'
+    g.fillText(v, cx + cw - 70, ry)
+  })
+
+  const link = shareUrl() ?? 'pjeon18.github.io/studdy'
+  g.textAlign = 'center'
+  g.fillStyle = '#FF7A9E'
+  g.font = '700 36px "Studdy Digits", "Pixelify Sans", monospace'
+  g.fillText(link.replace(/^https?:\/\//, ''), W / 2, cy + chh - 40)
+
+  g.fillStyle = '#4A3226'
+  g.font = '700 36px "Studdy Digits", "Pixelify Sans", monospace'
+  g.fillText('studdy · a study spot that never closes ♪', W / 2, H - 90)
+  return cv.toDataURL('image/png')
+}
+
+export async function downloadWeekCard() {
+  const data = await makeWeekCard()
+  const aEl = document.createElement('a')
+  aEl.href = data
+  aEl.download = `studdy-week-${getMyHandle() ?? 'recap'}.png`
+  aEl.click()
+}

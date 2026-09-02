@@ -788,6 +788,44 @@ textarea.px-input { resize: none; line-height: 1.35; }
 }
 .pp-name { font-size: 18px; color: #D9628F; }
 .pp-lv { font-size: 16px; color: var(--ink); white-space: nowrap; }
+.pp-streak { font-size: 15px; color: var(--butter); text-shadow: 1.5px 1.5px 0 rgba(74, 50, 38, 0.35); white-space: nowrap; }
+
+/* "a friend is studying" banner — one tap to join them */
+.now-banner {
+  position: fixed;
+  top: 118px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 9px solid transparent;
+  border-image: var(--px-btn-pink) 4 fill;
+  image-rendering: pixelated;
+  padding: 1px 4px 4px 8px;
+  box-shadow: 3px 3px 0 rgba(74, 50, 38, 0.25);
+  z-index: 28;
+}
+.now-banner.hidden { display: none; }
+.now-banner .nb-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 1.5px 1.5px 0 rgba(178, 74, 110, 0.9);
+  cursor: pointer;
+  padding-bottom: 2px;
+}
+.now-banner .nb-x {
+  border: none;
+  background: none;
+  color: #fff;
+  font-family: var(--font-px);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 4px 3px;
+  text-shadow: 1.5px 1.5px 0 rgba(178, 74, 110, 0.9);
+}
 .pp-beans-wrap { display: flex; align-items: center; gap: 5px; font-size: 17px; color: var(--ink); }
 .bean-ico { image-rendering: pixelated; vertical-align: -2px; }
 .shop-price { display: inline-flex; align-items: center; gap: 4px; }

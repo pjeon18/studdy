@@ -25,7 +25,9 @@ import { CATALOG } from './items'
 import { needsOnboarding, runOnboarding } from './onboarding'
 import { initCloud, getSupabase, cloudUser } from './cloud'
 import { initPresence, setPlace, updateState, presenceDebug } from './presence'
-import { initSocial, fetchCafeByUser, fetchCafeByHandle, requestFriend, logStudy, giftBean } from './social'
+import { initSocial, fetchCafeByUser, fetchCafeByHandle, requestFriend, logStudy, giftBean, listFriends } from './social'
+import { whereIs } from './presence'
+import { DREAM_CAFES } from './cafes'
 import { toast } from './ui'
 import { openGallery, openDrawPad, seedNotes, closeGuestbook } from './guestbook'
 import { openSalon, closeSalon } from './salon'
@@ -422,6 +424,50 @@ if (game) {
   store.on('info', () => updateState({}))
   // the social loop: publish my café, watch for friend requests
   initSocial({ onRequestCount: (n) => editor?.setRequestCount(n) })
+
+  // ---------- happening now: a friend is studying — one tap to join ----------
+  const nowBanner = document.createElement('div')
+  nowBanner.className = 'now-banner hidden'
+  nowBanner.innerHTML = `<span class="nb-text"></span><button class="nb-x">×</button>`
+  document.getElementById('ui')!.appendChild(nowBanner)
+  const nbText = nowBanner.querySelector('.nb-text') as HTMLElement
+  let nowGo: (() => void) | null = null
+  nbText.addEventListener('click', () => {
+    nowBanner.classList.add('hidden')
+    nowGo?.()
+  })
+  nowBanner.querySelector('.nb-x')!.addEventListener('click', () => {
+    nowBanner.classList.add('hidden')
+    localStorage.setItem('studdy-now-snooze', String(Date.now() + 30 * 60_000)) // rest for half an hour
+  })
+  async function refreshNow() {
+    if (!game || game.getVisiting()) return nowBanner.classList.add('hidden')
+    if (Date.now() < Number(localStorage.getItem('studdy-now-snooze') ?? 0)) return
+    const { friends } = await listFriends()
+    for (const f of friends) {
+      const at = whereIs(f.userId)
+      if (!at) continue
+      if (at === `user:${f.userId}`) {
+        nbText.textContent = `♥ ${f.name} is studying at their café — join ♪`
+        nowGo = async () => {
+          const cafe = await fetchCafeByUser(f.userId)
+          if (cafe && game) game.visit(cafe)
+        }
+        nowBanner.classList.remove('hidden')
+        return
+      }
+      const dc = DREAM_CAFES.find((c) => c.id === at)
+      if (dc) {
+        nbText.textContent = `♥ ${f.name} is studying at ${dc.name} — join ♪`
+        nowGo = () => game?.visit(dc)
+        nowBanner.classList.remove('hidden')
+        return
+      }
+    }
+    nowBanner.classList.add('hidden')
+  }
+  setTimeout(refreshNow, 12_000) // after presence settles
+  setInterval(refreshNow, 60_000)
 }
 
 // ---------- sound unlock + UI ticks ----------

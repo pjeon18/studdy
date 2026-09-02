@@ -57,6 +57,7 @@ function starter(): SaveDoc {
     xp: 0,
     lifetimeBeans: 60,
     goals: { custom: [], missionsClaimed: [], counters: {} },
+    streak: { count: 0, best: 0, lastDay: '' },
   }
 }
 
@@ -78,6 +79,7 @@ function load(): SaveDoc {
         doc.newItems ??= []
         doc.xp ??= 0
         doc.lifetimeBeans ??= doc.beans // best guess for saves from before we tracked it
+        doc.streak ??= { count: 0, best: 0, lastDay: '' }
         doc.goals ??= { custom: [], missionsClaimed: [], counters: {} }
         doc.goals.custom ??= []
         doc.goals.missionsClaimed ??= []
@@ -388,15 +390,69 @@ export function focusRate(): number {
   return Math.min(2.5, 1 + 0.1 * (level - 1))
 }
 
-/** Credit a focus session: level-scaled beans + xp + the mission counter. */
-export function earnFocus(minutes: number): number {
-  if (minutes <= 0) return 0
-  const beans = Math.max(minutes, Math.round(minutes * focusRate()))
-  addBeans(beans)
+export interface FocusResult {
+  beans: number
+  /** First session of the day — the welcome-back bonus fired. */
+  checkin: boolean
+  checkinBeans: number
+  /** The streak advanced today (needs a 5+ minute session). */
+  streakAdvanced: boolean
+  streakCount: number
+  streakBeans: number
+}
+
+const dayStamp = () => new Date().toDateString()
+function daysBetween(fromDay: string, toDay: string): number {
+  if (!fromDay) return Infinity
+  const a = new Date(fromDay).getTime()
+  const b = new Date(toDay).getTime()
+  return Math.round((b - a) / 86_400_000)
+}
+
+/** Credit a focus session: level-scaled beans + xp + counters + streak. */
+export function earnFocus(minutes: number): FocusResult {
+  const res: FocusResult = { beans: 0, checkin: false, checkinBeans: 0, streakAdvanced: false, streakCount: save.streak.count, streakBeans: 0 }
+  if (minutes <= 0) return res
+  res.beans = Math.max(minutes, Math.round(minutes * focusRate()))
+  addBeans(res.beans)
   addXp(minutes * 10)
   bumpCounter('focusMin', minutes)
-  return beans
+  bumpCounter(`wk:${weekStamp()}:min`, minutes) // for the weekly recap
+  const today = dayStamp()
+
+  // daily check-in: the first session of any day pays a small hello
+  if (save.goals.counters.checkinAt !== dateNum(today)) {
+    setCounter('checkinAt', dateNum(today))
+    res.checkin = true
+    res.checkinBeans = 5
+    addBeans(5)
+  }
+
+  // the streak: real sessions (5+ min) keep it alive. one rest day pauses
+  // it kindly; two or more starts over — no shame spiral.
+  if (minutes >= 5 && save.streak.lastDay !== today) {
+    const gap = daysBetween(save.streak.lastDay, today)
+    if (gap === 1) save.streak.count += 1
+    else if (gap !== 2) save.streak.count = 1 // gap of 2 = paused, keep the count
+    save.streak.lastDay = today
+    save.streak.best = Math.max(save.streak.best, save.streak.count)
+    res.streakAdvanced = true
+    res.streakCount = save.streak.count
+    res.streakBeans = Math.min(20, 3 + save.streak.count * 2)
+    addBeans(res.streakBeans)
+    commit('goals') // streak rides the goals event for badges/pill refresh
+  }
+  return res
 }
+
+/** ISO-ish week stamp (year + week number) for weekly counters. */
+export function weekStamp(d = new Date()): string {
+  const jan1 = new Date(d.getFullYear(), 0, 1)
+  const week = Math.floor(((d.getTime() - jan1.getTime()) / 86_400_000 + jan1.getDay()) / 7)
+  return `${d.getFullYear()}-${week}`
+}
+
+const dateNum = (day: string) => Math.floor(new Date(day).getTime() / 86_400_000)
 
 // ---------- goals & missions ----------
 export function bumpCounter(key: string, n = 1) {

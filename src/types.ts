@@ -142,4 +142,6 @@ export interface SaveDoc {
   /** Every bean ever earned (spending doesn't reduce it). */
   lifetimeBeans: number
   goals: GoalsState
+  /** Daily focus streak. One rest day pauses it; longer gaps start over. */
+  streak: { count: number; best: number; lastDay: string }
 }

@@ -133,6 +133,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
       <div class="set-row set-out-row hidden"><span></span><button class="glossy-btn ed-mini set-out">sign out</button></div>
       <div class="set-row set-share-row hidden"><span>café link</span><button class="glossy-btn btn-pink ed-mini set-share">copy ♪</button></div>
       <div class="set-row set-card-row hidden"><span>share card</span><button class="glossy-btn btn-mint ed-mini set-card">make one ♪</button></div>
+      <div class="set-row"><span>week recap</span><button class="glossy-btn btn-mint ed-mini set-recap">make one ♪</button></div>
       <div class="set-row"><span>save</span><button class="glossy-btn ed-mini set-reset">reset everything</button></div>
       <div class="ed-note">studdy · a study spot that never closes ♪</div>
     </div>
@@ -195,6 +196,12 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     const { downloadShareCard } = await import('./sharecard')
     await downloadShareCard()
     toast('share card saved — post it ♪')
+  })
+  setWin.querySelector('.set-recap')!.addEventListener('click', async () => {
+    toast('adding up your week ♪')
+    const { downloadWeekCard } = await import('./sharecard')
+    await downloadWeekCard()
+    toast('week recap saved ♪')
   })
   const paintSettings = () => {
     setSound.textContent = isEnabled() ? 'on ♪' : 'off'
@@ -505,6 +512,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   playerPill.innerHTML = `
     <span class="pp-name"></span>
     <span class="pp-lv"></span>
+    <span class="pp-streak" title="daily study streak"></span>
     <span class="pp-bar"><i class="pp-fill"></i></span>
     <b class="pp-beans-wrap">${beanImg(22)}<span class="pp-beans"></span></b>
   `
@@ -514,10 +522,12 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   const ppFill = playerPill.querySelector('.pp-fill') as HTMLElement
   const ppBeans = playerPill.querySelector('.pp-beans') as HTMLElement
   let lastLevel = store.levelInfo().level
+  const ppStreak = playerPill.querySelector('.pp-streak') as HTMLElement
   function refreshPill() {
     const li = store.levelInfo()
     ppName.textContent = store.save.info.name || 'you'
     ppLv.textContent = `lv ${li.level}`
+    ppStreak.textContent = store.save.streak.count > 0 ? `${store.save.streak.count}★` : ''
     ppFill.style.width = `${Math.round((li.into / li.need) * 100)}%`
     ppBeans.textContent = String(store.save.beans)
     if (li.level > lastLevel) {
@@ -529,6 +539,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   store.on('xp', refreshPill)
   store.on('beans', refreshPill)
   store.on('info', refreshPill)
+  store.on('goals', refreshPill) // the streak rides this event
   refreshPill()
 
   // ---------- deliveries queue (below the sprint clock) ----------

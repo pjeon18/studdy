@@ -812,3 +812,23 @@ Audited ahead of real accounts; findings fixed:
   slight horizontal crop.
 - Perf: coarse-pointer devices skip the 1.5× supersampling (native dpr
   only) in crisp mode.
+
+### Retention round (2026-09-02) — Build Plan 2 · T3
+- Daily streak: real sessions (5+ focused minutes) advance it; one rest
+  day PAUSES it (count kept), two or more starts over — kindness by
+  design. Streak bonus beans min(20, 3 + 2·count); best tracked. Shown on
+  the player pill (N★) and the self profile card (real data replaces the
+  fake '1 day ★').
+- Daily check-in: the first session of any day pays +5◍ ("first study of
+  the day — welcome back ♪"). Verified live: stand-up paid +6 (1 focused
+  + 5 check-in) with the toast sequence.
+- "Happening now" banner: when a friend is live somewhere, a pink pill
+  under the clock says "♥ {name} is studying at {place} — join ♪" — one
+  tap travels there; × snoozes it for 30 minutes. Refreshes every 60s
+  from the presence lobby. Verified rendering + placement (mock data).
+- Weekly recap card: settings → "week recap · make one ♪" draws a
+  lavender share PNG — hours focused this week (new wk:{stamp}:min
+  counter), streak + best, level, lifetime beans, café link. Verified
+  rendered.
+- Copy: joining mid-sprint now says "joined mid-sprint — chat opens at
+  break ♪".
