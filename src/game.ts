@@ -478,6 +478,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     glasses?: boolean
     real?: boolean
     uid?: string
+    nameColor?: string
   }
 
   interface Occupant {
@@ -610,6 +611,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
         glasses: p.glasses,
         real: true,
         uid: p.uid || undefined,
+        nameColor: p.nameColor,
       })
       occ.sitSince = p.since
       remoteSeat.set(p.key, seatKey)
@@ -1249,17 +1251,19 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     },
     getHoverInfo: () => hoverInfo,
     /** Floating name tags: one per person in the room (minecraft-style). */
-    getNameTags(): { name: string; x: number; y: number; z: number; self: boolean; real: boolean }[] {
-      const out: { name: string; x: number; y: number; z: number; self: boolean; real: boolean }[] = []
+    getNameTags(): { name: string; x: number; y: number; z: number; color: string; real: boolean }[] {
+      const out: { name: string; x: number; y: number; z: number; color: string; real: boolean }[] = []
       const myName = store.save.info.name || 'you'
+      const myColor = store.save.avatar.nameColor ?? '#FFFFFF'
       for (const o of occupants.values()) {
         const p = o.group.position
-        if (o.persona) out.push({ name: o.persona.name, x: p.x, y: p.y + 1.62, z: p.z, self: false, real: !!o.persona.real })
-        else out.push({ name: myName, x: p.x, y: p.y + 1.62, z: p.z, self: true, real: true })
+        if (o.persona)
+          out.push({ name: o.persona.name, x: p.x, y: p.y + 1.78, z: p.z, color: o.persona.nameColor ?? '#FFFFFF', real: !!o.persona.real })
+        else out.push({ name: myName, x: p.x, y: p.y + 1.78, z: p.z, color: myColor, real: false })
       }
       if (standing) {
         const p = standing.group.position
-        out.push({ name: myName, x: p.x, y: p.y + 2.28, z: p.z, self: true, real: true })
+        out.push({ name: myName, x: p.x, y: p.y + 2.42, z: p.z, color: myColor, real: false })
       }
       return out
     },

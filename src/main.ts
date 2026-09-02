@@ -627,8 +627,8 @@ function updateNameTags() {
     }
     el.style.display = ''
     if (el.textContent !== t.name) el.textContent = t.name
-    el.classList.toggle('self', t.self)
-    el.classList.toggle('real', t.real && !t.self)
+    el.style.color = t.color
+    el.classList.toggle('real', t.real)
     hoverV.set(t.x, t.y, t.z).project(camera)
     el.style.left = `${(hoverV.x * 0.5 + 0.5) * window.innerWidth}px`
     el.style.top = `${(-hoverV.y * 0.5 + 0.5) * window.innerHeight}px`

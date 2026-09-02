@@ -20,6 +20,8 @@ export interface Avatar {
   hairStyle: 'short' | 'long'
   sweater: string
   glasses: boolean
+  /** Floating name-tag color (hex). Default white. */
+  nameColor?: string
 }
 
 // Open-ended: the shell resolves ids from its FLOORS/WALLS catalogs (with fallback)

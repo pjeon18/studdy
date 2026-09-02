@@ -105,10 +105,10 @@ function stool(variant: string): BuiltItem {
   const group = new THREE.Group()
   const g = new VoxelGrid()
   for (const [lx, lz] of [[-6, -6], [6, -6], [-6, 6], [6, 6]] as const)
-    g.fill(lx, 0, lz, lx + 1, 26, lz + 1, PAL.honeyDark)
+    g.fill(lx, 0, lz, lx + 1, 23, lz + 1, PAL.honeyDark)
   group.add(vox(g))
-  group.add(puck(0.5, 0.5, 27, 2, 10.5, deep))
-  group.add(puck(0.5, 0.5, 29, 2.4, 10, top))
+  group.add(puck(0.5, 0.5, 24, 2, 10.5, deep))
+  group.add(puck(0.5, 0.5, 26, 2.4, 10, top))
   return { group }
 }
 
@@ -117,21 +117,21 @@ function chair(variant: string): BuiltItem {
   const group = new THREE.Group()
   const g = new VoxelGrid()
   for (const [lx, lz] of [[-7, -7], [7, -7], [-7, 7], [7, 7]] as const)
-    g.fill(lx, 0, lz, lx + 1, 27, lz + 1, PAL.honeyDark)
+    g.fill(lx, 0, lz, lx + 1, 24, lz + 1, PAL.honeyDark)
   // solid rounded back with a little heart cutout — chair-scaled, not throne-scaled
-  g.roundedBox(-7, 29, -10, 7, 44, -8, top)
-  g.fill(-7, 29, -10, 7, 30, -8, deep)
+  g.roundedBox(-7, 26, -10, 7, 41, -8, top)
+  g.fill(-7, 26, -10, 7, 27, -8, deep)
   const heart: [number, number][] = [
-    [39, -2], [39, 2],
-    [38, -3], [38, -2], [38, -1], [38, 0], [38, 1], [38, 2], [38, 3],
-    [37, -2], [37, -1], [37, 0], [37, 1], [37, 2],
-    [36, -1], [36, 0], [36, 1],
-    [35, 0],
+    [36, -2], [36, 2],
+    [35, -3], [35, -2], [35, -1], [35, 0], [35, 1], [35, 2], [35, 3],
+    [34, -2], [34, -1], [34, 0], [34, 1], [34, 2],
+    [33, -1], [33, 0], [33, 1],
+    [32, 0],
   ]
   for (const [hy, hx] of heart) g.carve(hx, hy, -10, hx, hy, -8)
   group.add(vox(g))
-  group.add(puck(0.5, 0.5, 27, 1.6, 12, top))
-  group.add(puck(0.5, 0.5, 28.6, 2, 11.5, deep))
+  group.add(puck(0.5, 0.5, 24, 1.6, 12, top))
+  group.add(puck(0.5, 0.5, 25.6, 2, 11.5, deep))
   return { group }
 }
 
@@ -143,9 +143,9 @@ function tableRound(r: number): Builder {
     g.fill(-16, 0, -3, 16, 2, 3, dark)
     g.fill(-3, 0, -16, 3, 2, 16, dark)
     group.add(vox(g))
-    group.add(puck(0, 0, 2, 36, 4.4, dark))
-    group.add(puck(0, 0, 38, 1.4, r - 1, dark))
-    group.add(puck(0, 0, 39, 3, r, light))
+    group.add(puck(0, 0, 2, 32, 4.4, dark))
+    group.add(puck(0, 0, 34, 1.4, r - 1, dark))
+    group.add(puck(0, 0, 35, 3, r, light))
     return { group }
   }
 }
@@ -166,9 +166,9 @@ function tableSquare(variant: string): BuiltItem {
   const group = new THREE.Group()
   const g = new VoxelGrid()
   for (const [lx, lz] of [[-14, -14], [12, -14], [-14, 12], [12, 12]] as const)
-    g.fill(lx, 0, lz, lx + 2, 37, lz + 2, dark)
-  g.fill(-15, 38, -15, 14, 39, 14, dark)
-  g.fill(-16, 39, -16, 15, 42, 15, light) // full-bleed top: neighbors join seamlessly
+    g.fill(lx, 0, lz, lx + 2, 33, lz + 2, dark)
+  g.fill(-15, 34, -15, 14, 35, 14, dark)
+  g.fill(-16, 35, -16, 15, 38, 15, light) // full-bleed top: neighbors join seamlessly
   group.add(vox(g))
   return { group }
 }
@@ -477,10 +477,10 @@ function bench(variant: string): BuiltItem {
   const group = new THREE.Group()
   const g = new VoxelGrid()
   for (const [lx, lz] of [[-28, -10], [26, -10], [-28, 8], [26, 8]] as const)
-    g.fill(lx, 0, lz, lx + 2, 25, lz + 1, PAL.honeyDark)
-  g.fill(-30, 25, -11, 29, 27, 10, PAL.honeyDark)
-  g.roundedBox(-30, 27, -11, 29, 31, 10, top)
-  g.fill(-30, 27, 10, 29, 28, 10, deep)
+    g.fill(lx, 0, lz, lx + 2, 22, lz + 1, PAL.honeyDark)
+  g.fill(-30, 22, -11, 29, 24, 10, PAL.honeyDark)
+  g.roundedBox(-30, 24, -11, 29, 28, 10, top)
+  g.fill(-30, 24, 10, 29, 25, 10, deep)
   group.add(vox(g))
   return { group }
 }
@@ -510,9 +510,9 @@ function tableLong(variant: string): BuiltItem {
   const group = new THREE.Group()
   const g = new VoxelGrid()
   for (const [lx, lz] of [[-42, -19], [40, -19], [-42, 17], [40, 17]] as const)
-    g.fill(lx, 0, lz, lx + 2, 37, lz + 2, dark)
-  g.fill(-44, 38, -22, 43, 39, 21, dark)
-  g.fill(-46, 39, -23, 45, 42, 22, light)
+    g.fill(lx, 0, lz, lx + 2, 33, lz + 2, dark)
+  g.fill(-44, 34, -22, 43, 35, 21, dark)
+  g.fill(-46, 35, -23, 45, 38, 22, light)
   group.add(vox(g))
   return { group }
 }
@@ -533,14 +533,14 @@ function desk(variant: string): BuiltItem {
   const [light, dark] = WOODS[variant] ?? WOODS.honey
   const group = new THREE.Group()
   const g = new VoxelGrid()
-  g.fill(10, 0, -14, 30, 38, 13, light) // drawer pedestal
-  g.fill(12, 8, 13, 28, 14, 13, dark)
-  g.fill(12, 18, 13, 28, 24, 13, dark)
-  g.fill(12, 28, 13, 28, 34, 13, dark)
-  for (const dy of [10, 20, 30]) g.fill(19, dy, 13, 21, dy + 1, 13, PAL.cream) // knobs
-  g.fill(-30, 0, -14, -28, 38, -12, dark) // left legs
-  g.fill(-30, 0, 11, -28, 38, 13, dark)
-  g.fill(-32, 39, -16, 31, 42, 15, light)
+  g.fill(10, 0, -14, 30, 34, 13, light) // drawer pedestal
+  g.fill(12, 7, 13, 28, 12, 13, dark)
+  g.fill(12, 16, 13, 28, 21, 13, dark)
+  g.fill(12, 25, 13, 28, 30, 13, dark)
+  for (const dy of [9, 18, 27]) g.fill(19, dy, 13, 21, dy + 1, 13, PAL.cream) // knobs
+  g.fill(-30, 0, -14, -28, 34, -12, dark) // left legs
+  g.fill(-30, 0, 11, -28, 34, 13, dark)
+  g.fill(-32, 35, -16, 31, 38, 15, light)
   group.add(vox(g))
   return { group }
 }
@@ -1053,11 +1053,11 @@ function salonMirror(): BuiltItem {
 export const CATALOG: Record<string, Entry> = {
   stool: {
     id: 'stool', price: 8, name: 'stool', category: 'seating', footprint: [1.4, 1.4], placement: 'floor',
-    seats: [{ dx: 0, dz: 0 }], seatY: 1.96, variants: VARIANTS, build: stool,
+    seats: [{ dx: 0, dz: 0 }], seatY: 1.78, variants: VARIANTS, build: stool,
   },
   chair: {
     id: 'chair', price: 12, name: 'café chair', category: 'seating', footprint: [1.6, 1.6], placement: 'floor',
-    seats: [{ dx: 0, dz: 0 }], seatY: 1.9, seatFaces: 'item', variants: VARIANTS, build: chair,
+    seats: [{ dx: 0, dz: 0 }], seatY: 1.73, seatFaces: 'item', variants: VARIANTS, build: chair,
   },
   armchair: {
     id: 'armchair', price: 30, name: 'armchair', category: 'seating', footprint: [4.2, 3.6], placement: 'floor',
@@ -1069,7 +1069,7 @@ export const CATALOG: Record<string, Entry> = {
   },
   bench: {
     id: 'bench', price: 18, name: 'bench', category: 'seating', footprint: [4, 1.6], placement: 'floor',
-    seats: [{ dx: -1, dz: 0 }, { dx: 1, dz: 0 }], seatY: 1.95, variants: VARIANTS, build: bench,
+    seats: [{ dx: -1, dz: 0 }, { dx: 1, dz: 0 }], seatY: 1.76, variants: VARIANTS, build: bench,
   },
   'floor-cushion': {
     id: 'floor-cushion', price: 6, name: 'floor cushion', category: 'seating', footprint: [1.5, 1.5], placement: 'floor',
@@ -1081,15 +1081,15 @@ export const CATALOG: Record<string, Entry> = {
   },
   'table-s': {
     id: 'table-s', price: 15, name: 'round table S', category: 'tables', footprint: [2.8, 2.8], placement: 'floor',
-    surface: { h: 2.625, radius: 1.25 }, variants: WOOD_VARIANTS, build: tableRound(20),
+    surface: { h: 2.375, radius: 1.25 }, variants: WOOD_VARIANTS, build: tableRound(20),
   },
   'table-m': {
     id: 'table-m', price: 25, name: 'round table M', category: 'tables', footprint: [4, 4], placement: 'floor',
-    surface: { h: 2.625, radius: 1.875 }, variants: WOOD_VARIANTS, build: tableRound(30),
+    surface: { h: 2.375, radius: 1.875 }, variants: WOOD_VARIANTS, build: tableRound(30),
   },
   'table-sq': {
     id: 'table-sq', price: 18, name: 'square table', category: 'tables', footprint: [2, 2], placement: 'floor',
-    surface: { h: 2.625 }, variants: WOOD_VARIANTS, build: tableSquare,
+    surface: { h: 2.375 }, variants: WOOD_VARIANTS, build: tableSquare,
   },
   'side-table': {
     id: 'side-table', price: 10, name: 'side table', category: 'tables', footprint: [1.3, 1.3], placement: 'floor',
@@ -1097,7 +1097,7 @@ export const CATALOG: Record<string, Entry> = {
   },
   'table-l': {
     id: 'table-l', price: 35, name: 'long table', category: 'tables', footprint: [5.8, 2.9], placement: 'floor',
-    surface: { h: 2.625 }, variants: WOOD_VARIANTS, build: tableLong,
+    surface: { h: 2.375 }, variants: WOOD_VARIANTS, build: tableLong,
   },
   'coffee-table': {
     id: 'coffee-table', price: 14, name: 'coffee table', category: 'tables', footprint: [3.5, 2], placement: 'floor',
@@ -1105,7 +1105,7 @@ export const CATALOG: Record<string, Entry> = {
   },
   desk: {
     id: 'desk', price: 22, name: 'writing desk', category: 'tables', footprint: [4, 2], placement: 'floor',
-    surface: { h: 2.625 }, variants: WOOD_VARIANTS, build: desk,
+    surface: { h: 2.375 }, variants: WOOD_VARIANTS, build: desk,
   },
   counter: {
     id: 'counter', price: 20, name: 'counter', category: 'counter', footprint: [2, 1.7], placement: 'floor',

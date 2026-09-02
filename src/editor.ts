@@ -116,6 +116,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     <div class="y2k-body settings-body">
       <div class="set-row"><span>sound</span><button class="glossy-btn ed-mini set-sound"></button></div>
       <div class="set-row"><span>music volume</span><input type="range" class="lights-slider set-music" min="0" max="100" /></div>
+      <div class="set-row"><span>name color</span><span class="ed-swatches set-namecolor"></span></div>
       <div class="set-row"><span>account</span><b class="set-acct"></b></div>
       <div class="set-acct-box">
         <input class="px-input set-email" type="email" placeholder="email for magic link…" />
@@ -134,6 +135,26 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   const acctBox = setWin.querySelector('.set-acct-box') as HTMLElement
   const outRow = setWin.querySelector('.set-out-row') as HTMLElement
   const setEmail = setWin.querySelector('.set-email') as HTMLInputElement
+  // the floating name-tag color — yours to pick, shown to everyone
+  const NAME_COLORS = ['#FFFFFF', '#FFA9C1', '#F8BD62', '#7CC9AC', '#8FC1E8', '#B9A8E8', '#FF8C6B']
+  const nameCtrl = setWin.querySelector('.set-namecolor') as HTMLElement
+  const paintNameSwatches = () => {
+    const cur = store.save.avatar.nameColor ?? '#FFFFFF'
+    nameCtrl.querySelectorAll<HTMLElement>('.swatch').forEach((b) => b.classList.toggle('active', b.dataset.v === cur))
+  }
+  for (const c of NAME_COLORS) {
+    const b = document.createElement('button')
+    b.className = 'swatch'
+    b.dataset.v = c
+    b.style.background = c
+    b.addEventListener('click', () => {
+      sfx.tick()
+      store.setAvatar({ nameColor: c })
+      paintNameSwatches()
+    })
+    nameCtrl.appendChild(b)
+  }
+
   const shareRow = setWin.querySelector('.set-share-row') as HTMLElement
   const shareBtn = setWin.querySelector('.set-share') as HTMLButtonElement
   shareBtn.addEventListener('click', async () => {
@@ -150,6 +171,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     setSound.textContent = isEnabled() ? 'on ♪' : 'off'
     setSound.classList.toggle('btn-mint', isEnabled())
     setMusic.value = String(Math.round(getMusicVolume() * 100))
+    paintNameSwatches()
     const handle = getMyHandle()
     shareRow.classList.toggle('hidden', !handle)
     if (handle) shareBtn.textContent = `@${handle} · copy ♪`
@@ -842,10 +864,10 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   // built for everyone, shown for ?debug (local poking) or a dev account
   {
     const dbg = document.createElement('div')
-    dbg.className = 'y2k-window editor-window dbg-window hidden'
+    dbg.className = 'y2k-window editor-window dbg-window hidden collapsed'
     dbg.innerHTML = `
       <div class="y2k-titlebar"><span class="tb-dots"><i></i><i></i></span><span class="tb-title">debug</span></div>
-      <div class="y2k-body" style="display:flex;gap:6px;flex-direction:column">
+      <div class="y2k-body dbg-body">
         <button class="glossy-btn" data-d="grant">+5 of everything</button>
         <button class="glossy-btn" data-d="beans">+100 beans</button>
         <button class="glossy-btn hidden" data-dev="1" data-d="rich">+10,000 beans</button>

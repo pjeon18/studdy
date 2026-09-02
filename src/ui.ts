@@ -277,7 +277,13 @@ function openProfileCard(ui: HTMLElement, x: number, y: number, data: CardData =
   `
   ui.appendChild(card)
   const w = 252
-  card.style.left = `${Math.min(Math.max(12, x - w / 2), window.innerWidth - w - 12)}px`
+  if (data.self) {
+    // your own card steps aside so you can watch yourself turn around
+    const right = x + 60
+    card.style.left = `${right + w + 12 > window.innerWidth ? Math.max(12, x - w - 60) : right}px`
+  } else {
+    card.style.left = `${Math.min(Math.max(12, x - w / 2), window.innerWidth - w - 12)}px`
+  }
   card.style.top = `${Math.min(Math.max(12, y - 320), window.innerHeight - 380)}px`
 
   drawPortrait(card.querySelector('.pc-portrait') as HTMLCanvasElement, data.hair, data.sweater)
@@ -363,7 +369,7 @@ export function collapsible(win: HTMLElement) {
   if (!bar) return
   const btn = document.createElement('button')
   btn.className = 'tb-min'
-  btn.textContent = '–'
+  btn.textContent = win.classList.contains('collapsed') ? '+' : '–'
   bar.insertBefore(btn, bar.querySelector('.tb-close'))
   btn.addEventListener('click', (e) => {
     e.stopPropagation()

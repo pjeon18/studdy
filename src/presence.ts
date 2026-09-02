@@ -19,6 +19,8 @@ export interface PatronState {
   skin: string
   hairStyle: 'short' | 'long'
   glasses: boolean
+  /** Their chosen name-tag color. */
+  nameColor: string
   /** Seat they're on in the current café (null = wandering). */
   seatKey: string | null
   napkin: string
@@ -71,6 +73,7 @@ function myState(): PatronState {
     skin: a.skin,
     hairStyle: a.hairStyle,
     glasses: a.glasses,
+    nameColor: a.nameColor && HEX.test(a.nameColor) ? a.nameColor : '#FFFFFF',
     seatKey: null,
     napkin: '',
     headphones: true,
@@ -98,6 +101,7 @@ function cleanPatron(key: string, raw: unknown): RemotePatron | null {
     skin: color(r.skin, '#FFDCBD'),
     hairStyle: r.hairStyle === 'long' ? 'long' : 'short',
     glasses: r.glasses === true,
+    nameColor: color(r.nameColor, '#FFFFFF'),
     seatKey: typeof r.seatKey === 'string' ? r.seatKey.slice(0, 48) : null,
     napkin: str(r.napkin, 40),
     headphones: r.headphones !== false,

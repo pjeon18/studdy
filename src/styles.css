@@ -94,7 +94,7 @@ body::after {
   border: 9px solid transparent;
   border-image: var(--px-panel) 4 fill;
   image-rendering: pixelated;
-  padding: 0 6px 4px;
+  padding: 3px 6px 1px;
   box-shadow: 4px 4px 0 rgba(74, 50, 38, 0.18);
 }
 
@@ -364,6 +364,8 @@ body::after {
   overflow-x: hidden;
 }
 .dbg-window { top: auto; bottom: 130px; width: 210px; }
+/* no inline styles here: the collapsed rule must be able to hide it */
+.dbg-body { display: flex; gap: 6px; flex-direction: column; }
 .ed-row {
   display: flex;
   justify-content: space-between;
@@ -961,15 +963,14 @@ textarea.px-input { resize: none; line-height: 1.35; }
   transform: translate(-50%, -100%);
   font-family: 'Studdy Digits', 'Pixelify Sans', monospace;
   font-weight: 700;
-  font-size: 11px;
-  color: #FFFFFF;
-  text-shadow: 1px 1px 0 rgba(42, 30, 20, 0.75), -1px -1px 0 rgba(42, 30, 20, 0.45);
-  opacity: 0.92;
+  font-size: 13px;
+  color: #FFFFFF; /* per-person color set inline; white is the default */
+  text-shadow: 1px 1px 0 rgba(42, 30, 20, 0.8), -1px -1px 0 rgba(42, 30, 20, 0.5), 1px -1px 0 rgba(42, 30, 20, 0.5), -1px 1px 0 rgba(42, 30, 20, 0.5);
+  opacity: 0.95;
   pointer-events: none;
   z-index: 4;
   white-space: nowrap;
 }
-.name-tag.self { color: var(--pink-soft); }
 .name-tag.real::before {
   content: '';
   display: inline-block;
