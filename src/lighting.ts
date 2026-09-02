@@ -102,6 +102,9 @@ export class Lighting {
   lampLights: THREE.PointLight[]
   wash: THREE.DirectionalLight
   pendants: THREE.PointLight[] = []
+  private pendantNorm = 1
+  /** Flat indoor floor light — the "even from the ceiling" part. */
+  roomAmbient: THREE.AmbientLight
   screenGlow: THREE.PointLight
   t = 1
   // room lights boot fully "on" (slider max); the slider dims from there.
@@ -159,6 +162,11 @@ export class Lighting {
     this.wash.target.position.set(14, 0, 10)
     scene.add(this.wash, this.wash.target)
 
+    // the even indoor floor: rides the room-light control so corners never
+    // fall darker than the middle of the room
+    this.roomAmbient = new THREE.AmbientLight('#FFF3E2', 0)
+    scene.add(this.roomAmbient)
+
     this.screenGlow = new THREE.PointLight('#CDE9FF', 0.6, 5, 1.8)
     this.screenGlow.position.copy(world.screenGlowPos ?? new THREE.Vector3(0, -100, 0))
     scene.add(this.screenGlow)
@@ -188,8 +196,12 @@ export class Lighting {
   setPendantGrid(positions: THREE.Vector3[]) {
     for (const l of this.pendants) this.scene.remove(l)
     this.pendants = []
+    // gentle falloff + long reach = the corners get the same light as the
+    // center; total brightness is normalized by count so bigger rooms
+    // don't blow out
+    this.pendantNorm = Math.min(1, 2 / Math.max(1, positions.length))
     for (const p of positions) {
-      const light = new THREE.PointLight('#FFDCA6', 3.5, 15, 1.6)
+      const light = new THREE.PointLight('#FFDCA6', 3.5, 26, 1.05)
       light.position.copy(p)
       this.scene.add(light)
       this.pendants.push(light)
@@ -256,7 +268,8 @@ export class Lighting {
     const lampVal = ln(a.lampIntensity, b.lampIntensity) * this.furnMult
     this.lampLights.forEach((l) => (l.intensity = lampVal))
     const pend = ln(a.pendantIntensity, b.pendantIntensity) * this.roomMult
-    this.pendants.forEach((l) => (l.intensity = pend))
+    this.pendants.forEach((l) => (l.intensity = pend * this.pendantNorm))
+    this.roomAmbient.intensity = pend * 0.07
     this.wash.intensity = ln(a.washIntensity, b.washIntensity) * this.roomMult
     this.screenGlow.intensity = ln(a.screenGlow, b.screenGlow)
     lc(a.sky, b.sky, this.world.skyMat.color)

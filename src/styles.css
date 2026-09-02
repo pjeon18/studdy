@@ -689,6 +689,10 @@ textarea.px-input { resize: none; line-height: 1.35; }
 .gl-add { display: flex; flex-direction: column; gap: 5px; padding-top: 2px; }
 .gl-add .px-input { width: 100%; }
 .gl-add-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.gl-slider-row { display: flex; align-items: center; gap: 6px; }
+.gl-slider-row .lights-slider { width: 96px; }
+.gl-val { font-size: 13px; min-width: 34px; }
+.gl-stars { font-size: 12px; color: var(--butter); text-shadow: 1px 1px 0 rgba(74, 50, 38, 0.35); white-space: nowrap; }
 .gl-opts { display: flex; gap: 3px; }
 .gl-opt { font-size: 12px; padding: 0 5px 2px; }
 .gl-opt.active {

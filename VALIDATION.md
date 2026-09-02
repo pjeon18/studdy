@@ -715,3 +715,23 @@ Audited ahead of real accounts; findings fixed:
   hosted minutes, 25/5 pitch, the ?cafe= link as a pink button) and
   downloads it — sized for TikTok/IG posts. Canvas fonts lead with Studdy
   Digits so 2/5 render correctly. Verified rendered in the pane.
+
+### Goals v2 + even lighting (2026-09-02)
+- Custom goals: reward picked with a slider, capped at 10◍ (daily) / 30◍
+  (weekly); at most three of each cadence at a time (store-enforced, with
+  a polite refusal).
+- Missions are CHAINS: one tier visible at a time — claiming reveals the
+  next stage, with stage stars (★☆☆ → ★★☆ → ★★★) on multi-tier chains
+  (friends 3/10/15 · visits 5/15/40 · focus 60/300/1000 · chat 5/25/100;
+  salon + guestbook stay single). Verified live: claiming "visit 5 cafés"
+  advanced the row to "visit 15 cafés ★★☆". Legacy claimed ids carry over.
+- The ✔ goals tab wears a red badge counting rewards ready to collect
+  (ready mission tiers + next-day custom goals); refreshes on store
+  changes + a slow friend-count poll. Verified showing 2.
+- Next-day claim gate verified across a real date boundary (yesterday's
+  goal offered "claim 15◍" today).
+- Even room lighting: the ceiling grid now reaches toward the walls
+  (nx=w/7 with margins), point falloff softened (distance 26, decay 1.05),
+  total brightness normalized by light count, plus a small room-scaled
+  ambient — corners now match the room center (first pass was washed out;
+  re-tuned norm 2/count + ambient 0.07·pend).

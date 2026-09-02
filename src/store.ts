@@ -400,16 +400,23 @@ export function setCounter(key: string, v: number) {
   commit('goals')
 }
 
-export function addGoal(text: string, beans: number, cadence: 'daily' | 'weekly') {
-  if (!text.trim()) return
+/** Reward caps: daily goals pay up to 10◍, weekly up to 30◍. */
+export const GOAL_CAP: Record<'daily' | 'weekly', number> = { daily: 10, weekly: 30 }
+
+/** Add a self-set goal. Returns null on success, or the reason it can't. */
+export function addGoal(text: string, beans: number, cadence: 'daily' | 'weekly'): string | null {
+  if (!text.trim()) return 'write the goal first ♪'
+  if (save.goals.custom.filter((g) => g.cadence === cadence).length >= 3)
+    return `three ${cadence} goals is plenty — finish one first ♪`
   save.goals.custom.push({
     id: `g-${Date.now()}-${Math.floor(Math.random() * 1e4)}`,
     text: text.trim().slice(0, 60),
-    beans: Math.max(1, Math.min(50, Math.round(beans))),
+    beans: Math.max(1, Math.min(GOAL_CAP[cadence], Math.round(beans))),
     cadence,
     createdAt: Date.now(),
   })
   commit('goals')
+  return null
 }
 
 export function removeGoal(id: string) {

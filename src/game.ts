@@ -92,13 +92,18 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
 
   // ---------- shell ----------
   function pendantGrid(): THREE.Vector3[] {
+    // even ceiling light: a grid that reaches toward the walls so corners
+    // get the same wash as the center (the lighting rig normalizes total
+    // brightness by light count)
     const { w, d } = activeRoom()
     const out: THREE.Vector3[] = []
-    const nx = Math.max(1, Math.round(w / 9))
-    const nz = Math.max(1, Math.round(d / 9))
+    const nx = Math.max(2, Math.round(w / 7))
+    const nz = Math.max(2, Math.round(d / 7))
+    const mx = Math.min(3, w / 4)
+    const mz = Math.min(3, d / 4)
     for (let i = 0; i < nx; i++)
       for (let j = 0; j < nz; j++)
-        out.push(new THREE.Vector3(((i + 0.5) * w) / nx, 6.75, ((j + 0.5) * d) / nz))
+        out.push(new THREE.Vector3(mx + (i * (w - 2 * mx)) / (nx - 1), 6.75, mz + (j * (d - 2 * mz)) / (nz - 1)))
     return out
   }
 
