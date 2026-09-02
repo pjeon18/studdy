@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>studdy · room lab (dev only)</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #B8E4F6; font-family: monospace; overflow: hidden; }
+      canvas { display: block; }
+      #hud { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+      #hud button {
+        font-family: monospace; font-size: 14px; font-weight: 700;
+        color: #4A3226; background: #FFF4DE; border: 2.5px solid #4A3226;
+        padding: 5px 14px 7px; cursor: pointer; box-shadow: 2.5px 2.5px 0 rgba(74,50,38,.3);
+      }
+      #hud button.on { background: #FFA9C1; color: #fff; }
+      .tag { position: fixed; bottom: 12px; font-size: 13px; font-weight: 700; color: #4A3226;
+        background: rgba(255,247,232,.9); border: 2px solid #4A3226; padding: 4px 10px 6px; }
+      #tagL { left: 12px; }
+      #tagR { right: 12px; }
+    </style>
+  </head>
+  <body>
+    <div id="hud">
+      <button data-mode="day" class="on">☀ day</button>
+      <button data-mode="dusk">☁ dusk</button>
+      <button data-mode="night">☾ night</button>
+    </div>
+    <span class="tag" id="tagL">D · crisp</span>
+    <span class="tag" id="tagR">D · pixelated</span>
+    <script type="module" src="/src/lab/room-lab.ts"></script>
+  </body>
+</html>

@@ -26,57 +26,63 @@ function rng(seed: number) {
   return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646
 }
 
-function plankTexture(base: string, dark: string): THREE.Texture {
+/** strength 1 = the loud version (B); strength ~0.3 = barely-there (D). */
+function plankTexture(base: string, dark: string, strength = 1): THREE.Texture {
   return tex((g) => {
     const r = rng(7)
     for (let row = 0; row < 8; row++) {
       // each board gets its own value, like hand-picked palette variation
-      const v = 0.92 + r() * 0.16
+      const v = 1 + (r() - 0.4) * 0.16 * strength
       g.fillStyle = shade(base, v)
       g.fillRect(0, row * 8, 64, 8)
       // sparse grain dashes
-      g.fillStyle = shade(base, v * 0.9)
-      for (let i = 0; i < 5; i++) {
+      g.fillStyle = shade(base, v * (1 - 0.1 * strength))
+      const dashes = Math.round(5 * strength)
+      for (let i = 0; i < dashes; i++) {
         const x = Math.floor(r() * 60)
         g.fillRect(x, row * 8 + 1 + Math.floor(r() * 6), 2 + Math.floor(r() * 4), 1)
       }
-      // seam
-      g.fillStyle = dark
+      // seam: full-strength uses the deep tone, subtle just dips the base
+      g.fillStyle = strength >= 1 ? dark : shade(base, 0.94)
       g.fillRect(0, row * 8 + 7, 64, 1)
       // staggered board ends
-      const end = Math.floor(r() * 64)
-      g.fillRect(end, row * 8, 1, 8)
+      if (strength >= 0.5) {
+        const end = Math.floor(r() * 64)
+        g.fillRect(end, row * 8, 1, 8)
+      }
     }
   })
 }
 
-function paperTexture(base: string): THREE.Texture {
+function paperTexture(base: string, strength = 1): THREE.Texture {
   return tex((g) => {
     const r = rng(23)
     g.fillStyle = base
     g.fillRect(0, 0, 64, 64)
-    for (let i = 0; i < 900; i++) {
-      const v = 0.96 + r() * 0.08
+    const specks = Math.round(900 * strength)
+    for (let i = 0; i < specks; i++) {
+      const v = 1 + (r() - 0.5) * 0.08 * strength
       g.fillStyle = shade(base, v)
       g.fillRect(Math.floor(r() * 64), Math.floor(r() * 64), 1, 1)
     }
     // the faintest vertical panelling
-    g.fillStyle = 'rgba(0,0,0,0.05)'
+    g.fillStyle = `rgba(0,0,0,${0.05 * strength})`
     for (let x = 0; x < 64; x += 16) g.fillRect(x, 0, 1, 64)
   })
 }
 
-function weaveTexture(base: string): THREE.Texture {
+function weaveTexture(base: string, strength = 1): THREE.Texture {
   return tex((g) => {
     const r = rng(41)
     g.fillStyle = base
     g.fillRect(0, 0, 64, 64)
     for (let y = 0; y < 64; y += 2) {
-      g.fillStyle = shade(base, y % 4 === 0 ? 1.05 : 0.95)
+      g.fillStyle = shade(base, y % 4 === 0 ? 1 + 0.05 * strength : 1 - 0.05 * strength)
       for (let x = (y % 4 === 0 ? 0 : 1); x < 64; x += 2) g.fillRect(x, y, 1, 1)
     }
-    for (let i = 0; i < 60; i++) {
-      g.fillStyle = shade(base, 0.9)
+    const specks = Math.round(60 * strength)
+    for (let i = 0; i < specks; i++) {
+      g.fillStyle = shade(base, 1 - 0.1 * strength)
       g.fillRect(Math.floor(r() * 64), Math.floor(r() * 64), 1, 1)
     }
   })
@@ -91,6 +97,27 @@ function shade(hex: string, v: number): string {
 function toonRamp(): THREE.Texture {
   const data = new Uint8Array([150, 150, 150, 255, 210, 210, 210, 255, 255, 255, 255, 255])
   const t = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat)
+  t.magFilter = THREE.NearestFilter
+  t.minFilter = THREE.NearestFilter
+  t.needsUpdate = true
+  return t
+}
+
+// pixel-artist ramp: each band is a COLORED multiplier, so shadows hue-shift
+// toward blue-violet (a touch more saturated), highlights toward warm yellow
+// (a touch lifted) — never just darker/lighter gray of the base
+function hueShiftRamp(): THREE.Texture {
+  const v = new Float32Array([
+    // deep shadow: rich violet, saturated
+    0.36, 0.29, 0.88, 1,
+    // shadow: cool violet-blue
+    0.56, 0.5, 0.98, 1,
+    // mid: the base tone, a breath warmer
+    1.0, 0.94, 0.86, 1,
+    // highlight: sunny lift toward yellow
+    1.32, 1.19, 0.9, 1,
+  ])
+  const t = new THREE.DataTexture(v, 4, 1, THREE.RGBAFormat, THREE.FloatType)
   t.magFilter = THREE.NearestFilter
   t.minFilter = THREE.NearestFilter
   t.needsUpdate = true
@@ -123,15 +150,16 @@ function vignette(mat: MatMaker): THREE.Scene {
   // mug on the table
   add(new THREE.CylinderGeometry(0.28, 0.28, 0.5, 14), mat('china', PALETTE.china), 0.9, 2.5, -0.2)
 
-  const hemi = new THREE.HemisphereLight('#FFFAF2', '#EBE0D0', 0.7)
-  const dir = new THREE.DirectionalLight('#FFF4E7', 0.85)
+  // deliberately directional so shading BANDS are visible in every tile
+  const hemi = new THREE.HemisphereLight('#FFFAF2', '#EBE0D0', 0.32)
+  const dir = new THREE.DirectionalLight('#FFF4E7', 1.2)
   dir.position.set(6, 9, 5)
   dir.castShadow = true
   dir.shadow.mapSize.set(1024, 1024)
   dir.shadow.normalBias = 0.05
-  const warm = new THREE.PointLight('#FFC276', 6, 12, 1.4)
+  const warm = new THREE.PointLight('#FFC276', 5, 12, 1.4)
   warm.position.set(-1.5, 3.4, 1.5)
-  scene.add(hemi, dir, warm, new THREE.AmbientLight('#FFF3E2', 0.25))
+  scene.add(hemi, dir, warm, new THREE.AmbientLight('#FFF3E2', 0.1))
   return scene
 }
 
@@ -155,7 +183,11 @@ const ramp = toonRamp()
 const C: MatMaker = (_k, hex) =>
   new THREE.MeshToonMaterial({ color: new THREE.Color(hex).convertSRGBToLinear(), gradientMap: ramp })
 
-const D: MatMaker = (k) => new THREE.MeshToonMaterial({ map: grainMaps[k], gradientMap: ramp })
+// D: clean flat color + HUE-SHIFTED quantized bands + gentle pixels
+// (cool violet shadows, warm lifted highlights — the pixel-art color rule)
+const hueRamp = hueShiftRamp()
+const D: MatMaker = (_k, hex) =>
+  new THREE.MeshToonMaterial({ color: new THREE.Color(hex).convertSRGBToLinear(), gradientMap: hueRamp })
 
 // ---------- render four scissored quadrants ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -171,8 +203,8 @@ const cams = scenes.map(() => {
   return cam
 })
 
-// D renders tiny then upscales nearest — the chunky-pixel treatment
-const lowRT = new THREE.WebGLRenderTarget(180, 180)
+// D renders small then upscales nearest — gentler pixelation than before
+const lowRT = new THREE.WebGLRenderTarget(320, 320)
 lowRT.texture.magFilter = THREE.NearestFilter
 const blitScene = new THREE.Scene()
 const blitCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
@@ -196,7 +228,7 @@ function frame() {
     if (i === 3) {
       renderer.setScissorTest(false)
       renderer.setRenderTarget(lowRT)
-      renderer.setViewport(0, 0, 180, 180)
+      renderer.setViewport(0, 0, 320, 320)
       renderer.render(scene, cam)
       renderer.setRenderTarget(null)
       renderer.setScissorTest(true)
