@@ -274,7 +274,8 @@ function floorLamp(variant: string): BuiltItem {
   group.add(vox(g))
   group.add(cone(0, 0, 58, 16, 12, 5, shadeMat(shadeHex(variant || 'butter'))))
   group.add(puck(0, 0, 56.6, 1.4, 7.6, PAL.butter))
-  const lampLight = new THREE.PointLight('#FFC276', 1.2, 16, 1.7)
+  // soft wide pool, not a hot disc on the nearest wall
+  const lampLight = new THREE.PointLight('#FFC276', 1.2, 18, 1.4)
   lampLight.position.set(0, 62 * VOX, 0)
   group.add(lampLight)
   return { group, lampLight }
@@ -736,7 +737,7 @@ function tableLamp(variant: string): BuiltItem {
   group.add(vox(g))
   group.add(cone(0, 0, 15, 10, 8, 3.6, shadeMat(shadeHex(variant || 'butter'))))
   group.add(puck(0, 0, 14.2, 1, 5, PAL.butter))
-  const lampLight = new THREE.PointLight('#FFC276', 1.2, 9, 1.7)
+  const lampLight = new THREE.PointLight('#FFC276', 1.2, 11, 1.4)
   lampLight.position.set(0, 20 * VOX, 0)
   group.add(lampLight)
   return { group, lampLight }

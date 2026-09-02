@@ -744,3 +744,13 @@ Audited ahead of real accounts; findings fixed:
   (1 / 0.42 / 0.3) and softer washes. Verified all three modes: day =
   the approved warm look, dusk peachy and softer, night dim and cozy —
   all corner-to-corner even.
+
+### Lamp glow fix (2026-09-02)
+- Colored lamp shades emitted their own hue, so a blue shade at night read
+  as "off" beside a cream one — shades now glow lamplight-warm (their
+  color lerped 0.6 toward #FFD9A0) whatever the variant.
+- The hot "circle on the wall" from a near-wall lamp: point-light decay
+  softened (1.7 → 1.4), reach extended (16 → 18 floor / 9 → 11 table),
+  and dusk/night lamp intensities rebalanced (13→9 / 22→14) — lamps now
+  cast soft all-around pools. Verified at night with one cream + two sky
+  floor lamps: all three visibly lit, no wall disc.

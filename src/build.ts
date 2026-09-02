@@ -113,7 +113,10 @@ export function shadeMat(hex: string): THREE.MeshLambertMaterial {
   let m = shadeCache.get(hex)
   if (!m) {
     const c = new THREE.Color(hex).convertSRGBToLinear()
-    m = new THREE.MeshLambertMaterial({ color: c, emissive: c.clone(), emissiveIntensity: 0.06 })
+    // a lit shade glows LAMPLIGHT-warm whatever its color — a blue shade
+    // emitting pure blue reads as "off" next to a cream one at night
+    const glow = c.clone().lerp(new THREE.Color('#FFD9A0').convertSRGBToLinear(), 0.6)
+    m = new THREE.MeshLambertMaterial({ color: c, emissive: glow, emissiveIntensity: 0.06 })
     shadeCache.set(hex, m)
     lampShadeMats.push(m)
   }
