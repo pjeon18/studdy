@@ -146,13 +146,21 @@ async function publishNow() {
     console.warn('[social] café doc too large to publish')
     return
   }
-  const { error } = await supa.from('cafes').upsert({
-    user_id: me.id,
-    open: !!store.save.info.open,
-    doc,
-    updated_at: new Date().toISOString(),
-  })
-  if (error && !missingSchema(error)) console.warn('[social] café publish failed:', error.message)
+  // NOT upsert: PostgREST upserts need UPDATE permission on EVERY payload
+  // column (including user_id, server-locked since phase 5) — an upsert
+  // here dies with permission-denied and the café quietly stops syncing.
+  // Update the row we own; insert only when it doesn't exist yet.
+  const row = { open: !!store.save.info.open, doc, updated_at: new Date().toISOString() }
+  const { data: updated, error } = await supa.from('cafes').update(row).eq('user_id', me.id).select('user_id')
+  if (error) {
+    if (!missingSchema(error)) console.warn('[social] café publish failed:', error.message)
+    return
+  }
+  if (!updated?.length) {
+    const { error: insErr } = await supa.from('cafes').insert({ user_id: me.id, ...row })
+    if (insErr && insErr.code !== '23505' && !missingSchema(insErr))
+      console.warn('[social] café publish failed:', insErr.message)
+  }
 }
 
 function schedulePublish() {

@@ -1017,3 +1017,20 @@ Audited ahead of real accounts; findings fixed:
   café ♪" (no travel), and the banner refreshes ~2.5s after every lobby
   sync instead of only once a minute.
 - Toasts linger to be read: 2.2s + 28ms/char, capped 4.2s (was 1.6s).
+
+### Café sync fix (2026-09-03): rooms update for visitors again
+- FIELD REPORT: her room edits weren't reaching visitors (she saw her
+  current room, others saw the old one; presence unaffected). ROOT
+  CAUSE: publishNow used UPSERT, and a PostgREST upsert compiles to
+  INSERT … ON CONFLICT DO UPDATE SET <every payload column> — which
+  needs UPDATE permission on user_id, revoked by phase 5's
+  column-scoped grants. Existing cafés hit the update path and died
+  with a silent permission error; every café publish since phase 5 had
+  been failing. Fixed client-side: UPDATE the owned row, INSERT only
+  when it doesn't exist (no SQL change needed). The saves table keeps
+  full-column grants, so cloud saves were never affected.
+- LIVE ROOMS: while visiting a real café or the clubhouse, the doc
+  re-fetches every 20s (view mode only) and hot-swaps in place when the
+  host redecorated — walls, floor, furniture rebuild under you without
+  re-entering; if your seat left with the furniture you stand up kindly
+  (verified in the pane: 33→16 pieces + room shrink applied live).

@@ -1579,6 +1579,24 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     getMode: () => mode,
     visit,
     getVisiting: () => visiting,
+    /** The host redecorated while we're here: swap in their fresh doc live. */
+    refreshVisitingDoc(room: RoomDoc, placed: PlacedItem[]) {
+      if (!visiting) return
+      visiting.room = room
+      visiting.placed = placed
+      rebuildShell()
+      syncPlaced()
+      // the seat under you may be gone — stand up kindly (time still pays)
+      if (session && !seatRefs().some((s) => s.key === session!.seatKey)) {
+        toast('your seat went home with the furniture ♪')
+        leaveSeat()
+      }
+      // a standing player outside the new walls steps back inside
+      if (standing) {
+        standing.group.position.x = Math.min(room.w - 0.6, Math.max(0.6, standing.group.position.x))
+        standing.group.position.z = Math.min(room.d - 0.6, Math.max(0.6, standing.group.position.z))
+      }
+    },
     /** Members may furnish the clubhouse they're standing in. */
     setClubEditable(on: boolean) {
       clubEditable = on

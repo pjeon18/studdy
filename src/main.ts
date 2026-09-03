@@ -496,6 +496,26 @@ if (game) {
   // the social loop: publish my café, watch for friend requests
   initSocial({ onRequestCount: (n) => editor?.setRequestCount(n) })
 
+  // the room you're visiting stays LIVE: if the host redecorates, the
+  // fresh doc lands within ~20s (never mid-edit — furnish mode waits)
+  setInterval(async () => {
+    const v = game?.getVisiting()
+    if (!game || !v || game.getMode() !== 'view') return
+    const apply = (room: typeof v.room, placed: typeof v.placed) => {
+      const cur = game!.getVisiting()
+      if (!cur || cur.id !== v.id) return // we moved on while fetching
+      if (JSON.stringify({ r: room, p: placed }) === JSON.stringify({ r: cur.room, p: cur.placed })) return
+      game!.refreshVisitingDoc(room, placed)
+    }
+    if (v.id.startsWith('user:')) {
+      const fresh = await fetchCafeByUser(v.id.slice(5))
+      if (fresh) apply(fresh.room, fresh.placed)
+    } else if (v.id.startsWith('club:')) {
+      const club = await fetchMyClub(true)
+      if (club && `club:${club.id}` === v.id) apply(club.room, club.placed)
+    }
+  }, 20_000)
+
   // ---------- happening now: a friend is studying — one tap to join ----------
   const nowBanner = document.createElement('div')
   nowBanner.className = 'now-banner hidden'
