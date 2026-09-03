@@ -35,6 +35,7 @@ import {
   listFriends,
   focusSessionStart,
   focusSessionStop,
+  reportUser,
 } from './social'
 import { fetchMyClub, spendTreasury, saveClubDoc } from './clubs'
 import { whereIs } from './presence'
@@ -409,6 +410,10 @@ const ui = buildUI({
   onBulbTone: (t) => lighting.setBulbTone(t),
   onTurn: () => game?.turnPlayer(),
   onFriendUser: async (userId) => toast(await requestFriend(userId)),
+  onReport: async (userId) => {
+    const ok = await reportUser(userId)
+    toast(ok ? 'reported — thank you for looking out ♪' : 'already noted — thank you ♪')
+  },
   onVisitUser: async (userId) => {
     if (userId === cloudUser()?.id) {
       game?.visit(null) // that's you — just head home

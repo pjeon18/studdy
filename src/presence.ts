@@ -320,11 +320,20 @@ export function initPresence(h: Handlers) {
   }, 1500)
 }
 
-/** Move my presence to a café (null = my own home café). */
+/** Move my presence to a café (null = my own home café). Joins are
+ *  throttled: room-flapping (or a scripted hammer) can't churn channels
+ *  faster than one join per 1.5s — the last destination always wins. */
+let joinThrottleT: ReturnType<typeof setTimeout> | undefined
+let lastJoinAt = 0
 export function setPlace(cafeId: string | null) {
   wantPlace = cafeId
   statePatch = {} // a new room always starts standing
-  ensureJoined()
+  const wait = Math.max(0, 1500 - (Date.now() - lastJoinAt))
+  clearTimeout(joinThrottleT)
+  joinThrottleT = setTimeout(() => {
+    lastJoinAt = Date.now()
+    ensureJoined()
+  }, wait)
   trackLobby()
 }
 

@@ -113,17 +113,20 @@ export interface UICallbacks {
   onFriendUser?: (userId: string) => void
   /** Travel to a real user's café (profile cards of real people). */
   onVisitUser?: (userId: string) => void
+  onReport?: (userId: string) => void
 }
 
 let turnHook: (() => void) | undefined
 let friendHook: ((userId: string) => void) | undefined
 let visitUserHook: ((userId: string) => void) | undefined
+let reportHook: ((userId: string) => void) | null = null
 
 export function buildUI(cb: UICallbacks) {
   const ui = document.getElementById('ui')!
   turnHook = cb.onTurn
   friendHook = cb.onFriendUser
   visitUserHook = cb.onVisitUser
+  reportHook = cb.onReport ?? null
 
   // wordmark: rasterized pixel logo (see makeLogo)
   const brand = document.createElement('div')
@@ -314,6 +317,7 @@ function openProfileCard(ui: HTMLElement, x: number, y: number, data: CardData =
             : '<button class="glossy-btn btn-pink pc-friend">+ friend</button><button class="glossy-btn btn-mint pc-visit">visit café</button>'
         }
       </div>
+      ${!data.self && data.userId ? '<button class="pc-report">⚑ report</button>' : ''}
     </div>
   `
   ui.appendChild(card)
@@ -351,6 +355,12 @@ function openProfileCard(ui: HTMLElement, x: number, y: number, data: CardData =
     e.stopPropagation()
     card?.remove()
     card = null
+  })
+  card.querySelector('.pc-report')?.addEventListener('click', () => {
+    if (!data.userId) return
+    if (!confirm(`report ${data.name}? only the studdy keeper sees reports.`)) return
+    reportHook?.(data.userId)
+    closeProfileCard()
   })
   card.querySelectorAll('.pc-actions .glossy-btn').forEach((btn) =>
     btn.addEventListener('click', () => {

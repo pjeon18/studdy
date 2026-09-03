@@ -469,6 +469,22 @@ export async function deleteNote(id: number): Promise<boolean> {
 }
 
 /** Block someone: their notes disappear and they can't ask or sign again. */
+/** Flag someone for review (rate-limited server-side; only Paul reads them). */
+export async function reportUser(userId: string): Promise<boolean> {
+  const supa = getSupabase()
+  const me = cloudUser()
+  if (!supa || !me || !UUID.test(userId) || userId === me.id) return false
+  const { error } = await supa.from('reports').insert({ reporter: me.id, reported: userId })
+  return !error // rate-limited / pre-migration failures read as a quiet no
+}
+
+/** The privacy-respecting visit counter: one integer per day, nothing else. */
+export async function visitPing() {
+  const supa = getSupabase()
+  if (!supa) return
+  await supa.rpc('visit_ping').then(() => {}) // pre-migration: quietly nothing
+}
+
 export async function blockUser(userId: string): Promise<boolean> {
   const supa = getSupabase()
   const me = cloudUser()
@@ -694,6 +710,7 @@ export function initSocial(handlers: { onRequestCount: (n: number) => void }) {
       collectHostEarnings()
       collectGifts()
     })
+    visitPing()
     pollRequests()
     setInterval(pollRequests, 60_000)
   }, 2000)
