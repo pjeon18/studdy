@@ -121,7 +121,9 @@ function placeCamera() {
 }
 let zoomF = 1 // 1 = whole café; user can zoom 1..5
 function fitFrustum() {
-  const aspect = window.innerWidth / window.innerHeight
+  // a page booted at zero size (hidden pane, background-restored tab) must
+  // not poison the frustum with NaN — it never heals once the ray math dies
+  const aspect = window.innerHeight > 0 ? window.innerWidth / window.innerHeight : 1.6
   let halfH = NEED_H
   if (NEED_W / aspect > NEED_H) halfH = NEED_W / aspect
   // portrait phones: fitting the full room width leaves it tiny, so zoom in
