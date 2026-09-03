@@ -889,3 +889,34 @@ Audited ahead of real accounts; findings fixed:
   2+ minutes and watch the directory leaderboard xp rise; a devtools
   `supa.from('profiles').update({ xp: 999999 })` must come back
   permission-denied.
+
+### T1 acceptance probes (2026-09-03, after Paul ran phase5.sql)
+- POST /rest/v1/rpc/session_begin with the anon key → 42501 "permission
+  denied for function" (the function EXISTS and is authenticated-only —
+  a missing function would be PGRST202).
+- Direct study_log insert → 42501 permission denied. ✓ locked.
+- Remaining live check happens by playing: xp on the leaderboard should
+  rise ~10/min while seated.
+
+### The lofi radio (2026-09-03) — Build Plan 2 · T5
+- Six curated CC lofi tracks (Pixabay content license; credits +
+  source URLs in README) in public/music/ as 96kbps AAC (~10MB total),
+  replacing the procedural lofi. Rain piano and all SFX stay
+  synthesized.
+- Each café is a radio STATION, not a playlist: the café's seed
+  (dream café id, or user:<uid> for real cafés — the owner reseeds to
+  their real uid once the cloud session arrives) shuffles the track
+  order, and the wall clock picks the track and the position. Everyone
+  in the room hears the same thing at the same moment; reloading
+  rejoins mid-track (verified: same track resumed via range-request
+  seeks after a full reload).
+- "♪ on air — <track>" line in the café card (info window), refreshed
+  while open. Owner picks lofi/rain/quiet as before.
+- Chat bubbles duck the music to 35% for ~1.3s (setTargetAtTime), then
+  ease back — the radio routes through the shared WebAudio music chain
+  (lowpass warmth + volume slider + duck all apply).
+- Service worker: /music/ paths are cache-first (immutable), everything
+  else stays network-first.
+- Verified in the pane: station click → lofi-3 streamed (206), label
+  matched the schedule ("warm static" = track 3), reload rejoined the
+  same track, chat send → bubble + duck with zero console errors.
