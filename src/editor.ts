@@ -13,6 +13,7 @@ import { sfx, setStation, STATIONS, isEnabled, setEnabled, setMusicVolume, getMu
 import { capacityOfPlaced, type Game, type Session } from './game'
 import { cloudConfigured, cloudUser, linkEmail, signOut, isDev } from './cloud'
 import { fetchCafeByUser, listOpenCafes, listFriends, acceptRequest, declineRequest, getMyHandle, shareUrl, fetchLeaders, starsFor } from './social'
+import { fetchMyClub, myClubCached, createClub, joinClub, leaveClub, kickMember, donate, clubhouseCafe } from './clubs'
 import { whereIs } from './presence'
 import type { FloorStyle, WallStyle } from './types'
 
@@ -63,17 +64,26 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     win?.classList.remove('hidden')
   }
 
+  /** Standing in my clubhouse (members furnish it together). */
+  const isClubVisit = () => {
+    const v = game.getVisiting()
+    const c = myClubCached()
+    return !!v && !!c && v.id === `club:${c.id}`
+  }
+
   function setMode(m: 'view' | 'room' | 'furnish') {
     game.setMode(m)
     const editing = m !== 'view'
-    barBtn('edit').classList.toggle('hidden', editing)
-    barBtn('shop').classList.toggle('hidden', editing)
-    barBtn('room').classList.toggle('hidden', !editing)
+    const club = isClubVisit()
+    barBtn('edit').classList.toggle('hidden', editing || (!!visitingCafe && !club))
+    barBtn('shop').classList.toggle('hidden', editing || !!visitingCafe)
+    barBtn('room').classList.toggle('hidden', !editing || club) // clubhouse walls are fixed (v1)
     barBtn('furnish').classList.toggle('hidden', !editing)
     barBtn('done').classList.toggle('hidden', !editing)
     barBtn('room').classList.toggle('active', m === 'room')
     barBtn('furnish').classList.toggle('active', m === 'furnish')
     barBtn('visit').classList.toggle('hidden', editing)
+    if (m === 'furnish') refreshInventory()
     showLeft(m === 'room' ? roomWin : m === 'furnish' ? furnishWin : null)
     selWin.classList.add('hidden')
     if (m !== 'room') refreshRoom()
@@ -396,6 +406,29 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
 
   function refreshInventory() {
     invGrid.innerHTML = ''
+    ;(furnishWin.querySelector('.tb-title') as HTMLElement).textContent = isClubVisit() ? 'furnish the clubhouse' : 'furnish'
+    if (isClubVisit()) {
+      // the clubhouse shops straight from the catalog — the treasury pays
+      const club = myClubCached()!
+      const bal = document.createElement('div')
+      bal.className = 'ed-note club-bal'
+      bal.textContent = `treasury: ${club.treasury} ◍ — placing spends it ♪`
+      invGrid.appendChild(bal)
+      for (const entry of Object.values(CATALOG)) {
+        const b = document.createElement('button')
+        b.className = 'glossy-btn inv-btn'
+        b.innerHTML = `${entry.name} <i>${entry.price} ◍</i>`
+        b.addEventListener('click', () => {
+          const variants = entry.variants
+          const variant = variants ? variants[Math.floor(Math.random() * variants.length)] : undefined
+          game.startPlacing(entry.id, variant)
+          invGrid.querySelectorAll('.inv-btn').forEach((x) => x.classList.remove('active'))
+          b.classList.add('active')
+        })
+        invGrid.appendChild(b)
+      }
+      return
+    }
     for (const [id, n] of Object.entries(store.save.inventory)) {
       if (n <= 0 || !CATALOG[id]) continue
       const b = document.createElement('button')
@@ -966,6 +999,166 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     if (!friendsWin.classList.contains('hidden')) renderReal()
   })
 
+  // ---------- clubs tab (side): five-seat clans, level 10+ ----------
+  const clubsTab = document.createElement('button')
+  clubsTab.className = 'glossy-btn clubs-tab rslot-tab'
+  clubsTab.textContent = '♜ clubs'
+  ui.appendChild(clubsTab)
+
+  const clubWin = document.createElement('div')
+  clubWin.className = 'y2k-window clubs-window rslot-window hidden'
+  clubWin.innerHTML = `
+    <div class="y2k-titlebar"><span class="tb-dots"><i></i><i></i></span><span class="tb-title">study clubs</span><button class="tb-close">×</button></div>
+    <div class="y2k-body club-body"></div>
+  `
+  ui.appendChild(clubWin)
+  clubWin.querySelector('.tb-close')!.addEventListener('click', () => clubWin.classList.add('hidden'))
+  const clubBody = clubWin.querySelector('.club-body') as HTMLElement
+
+  const clubLocked = () => store.levelInfo().level < 10
+  const paintClubTab = () => clubsTab.classList.toggle('locked', clubLocked() && !myClubCached())
+  store.on('xp', paintClubTab)
+  paintClubTab()
+
+  function renderClub() {
+    const club = myClubCached()
+    clubBody.innerHTML = ''
+    if (!cloudConfigured() || !cloudUser()) {
+      clubBody.innerHTML = `<p class="ed-note">clubs live in the cloud — you're playing local-only right now ♪</p>`
+      return
+    }
+    if (!club && clubLocked()) {
+      clubBody.innerHTML = `
+        <p class="ed-note">study clubs unlock at <b>level 10</b> — five friends, one shared
+        clubhouse you furnish together, and a warmth bonus when a clubmate is studying ♪</p>
+        <p class="ed-note">you're lv ${store.levelInfo().level} — keep sitting down ♪</p>`
+      return
+    }
+    if (!club) {
+      clubBody.innerHTML = `
+        <p class="ed-note">five seats, one shared clubhouse, +10% xp while a clubmate studies ♪</p>
+        <div class="ed-row"><input class="px-input club-new-name" placeholder="club name…" maxlength="24" /></div>
+        <div class="ed-row"><input class="px-input club-new-handle" placeholder="handle (for invites)…" maxlength="20" />
+          <button class="glossy-btn ed-mini btn-pink club-create">found it ♪</button></div>
+        <hr class="ed-hr" />
+        <div class="ed-row"><input class="px-input club-join-handle" placeholder="a club's handle…" maxlength="20" />
+          <button class="glossy-btn ed-mini btn-mint club-join">join</button></div>
+        <p class="ed-note club-msg"></p>`
+      const msg = clubBody.querySelector('.club-msg') as HTMLElement
+      clubBody.querySelector('.club-create')!.addEventListener('click', async () => {
+        const name = (clubBody.querySelector('.club-new-name') as HTMLInputElement).value.trim()
+        const handle = (clubBody.querySelector('.club-new-handle') as HTMLInputElement).value.trim().toLowerCase()
+        if (!name || !handle) {
+          msg.textContent = 'give it a name and a handle ♪'
+          return
+        }
+        msg.textContent = 'founding…'
+        const err = await createClub(handle, name)
+        msg.textContent = err ?? ''
+        if (!err) {
+          sfx.earn()
+          toast('your club is open ♪')
+          renderClub()
+          paintClubTab()
+        }
+      })
+      clubBody.querySelector('.club-join')!.addEventListener('click', async () => {
+        const handle = (clubBody.querySelector('.club-join-handle') as HTMLInputElement).value.trim().toLowerCase()
+        if (!handle) return
+        msg.textContent = 'knocking…'
+        const err = await joinClub(handle)
+        msg.textContent = err ?? ''
+        if (!err) {
+          sfx.earn()
+          toast('welcome to the club ♪')
+          renderClub()
+          paintClubTab()
+        }
+      })
+      return
+    }
+    // in a club
+    const me = cloudUser()
+    const lead = club.myRole === 'leader'
+    clubBody.innerHTML = `
+      <div class="ed-row"><b>${esc(club.name)}</b><span class="ed-note">@${esc(club.handle)}</span></div>
+      <div class="ed-row"><span>treasury</span><b>${club.treasury} ◍</b></div>
+      <div class="ed-row club-donate-row">
+        <span>chip in</span>
+        <span>
+          <button class="glossy-btn ed-mini" data-d="10">+10</button>
+          <button class="glossy-btn ed-mini" data-d="50">+50</button>
+          <button class="glossy-btn ed-mini" data-d="250">+250</button>
+        </span>
+      </div>
+      <div class="club-members"></div>
+      <div class="ed-row">
+        <button class="glossy-btn btn-pink club-visit">⌂ clubhouse ♪</button>
+        <button class="glossy-btn ed-mini club-leave">leave</button>
+      </div>
+      <p class="ed-note">everyone can furnish the clubhouse — the treasury pays for it.
+      while a clubmate is studying, you both earn +10% xp ♪</p>
+      <p class="ed-note club-msg"></p>`
+    const msg = clubBody.querySelector('.club-msg') as HTMLElement
+    const membersEl = clubBody.querySelector('.club-members') as HTMLElement
+    for (const m of club.members) {
+      const row = document.createElement('div')
+      row.className = 'ed-row club-member'
+      row.innerHTML = `<span>${esc(m.name)} <i class="ed-note">@${esc(m.handle)}${m.role === 'leader' ? ' · leader' : ''}</i></span>`
+      if (lead && m.userId !== me?.id) {
+        const kick = document.createElement('button')
+        kick.className = 'glossy-btn ed-mini'
+        kick.textContent = '×'
+        kick.title = 'remove from the club'
+        kick.addEventListener('click', async () => {
+          await kickMember(m.userId)
+          renderClub()
+        })
+        row.appendChild(kick)
+      }
+      membersEl.appendChild(row)
+    }
+    clubBody.querySelectorAll('[data-d]').forEach((b) =>
+      b.addEventListener('click', async () => {
+        const n = Number((b as HTMLElement).dataset.d)
+        if (!store.spendBeans(n)) {
+          msg.textContent = 'not enough beans ♪'
+          return
+        }
+        const t = await donate(n)
+        if (t < 0) {
+          store.grantBeans(n) // the cloud said no — hand them back
+          msg.textContent = 'that didn’t go through — try again ♪'
+        } else {
+          sfx.coin()
+          msg.textContent = ''
+          renderClub()
+        }
+      })
+    )
+    clubBody.querySelector('.club-visit')!.addEventListener('click', () => {
+      const fresh = myClubCached()
+      if (fresh) game.visit(clubhouseCafe(fresh))
+      clubWin.classList.add('hidden')
+    })
+    clubBody.querySelector('.club-leave')!.addEventListener('click', async () => {
+      if (!confirm(lead ? 'leave your club? the oldest member becomes leader (or it closes).' : 'leave the club?')) return
+      await leaveClub()
+      toast('you left the club ♪')
+      renderClub()
+      paintClubTab()
+    })
+  }
+
+  clubsTab.addEventListener('click', async () => {
+    toggleRightWindow(clubWin, clubsTab)
+    if (clubWin.classList.contains('hidden')) return
+    clubBody.innerHTML = `<p class="ed-note">checking the clubhouse…</p>`
+    await fetchMyClub(true)
+    paintClubTab()
+    renderClub()
+  })
+
   // ---------- debug / dev panel ----------
   // built for everyone, shown for ?debug (local poking) or a dev account
   {
@@ -1055,7 +1248,10 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     setVisiting(cafe) {
       const away = !!cafe
       visitingCafe = cafe
-      barBtn('edit').classList.toggle('hidden', away)
+      const clubEd = isClubVisit()
+      game.setClubEditable(clubEd)
+      barBtn('edit').textContent = clubEd ? '✎ furnish clubhouse' : '✎ edit café'
+      barBtn('edit').classList.toggle('hidden', away && !clubEd)
       barBtn('shop').classList.toggle('hidden', away)
       barBtn('home').classList.toggle('hidden', !away)
       showLeft(null)

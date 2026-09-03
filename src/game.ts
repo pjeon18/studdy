@@ -36,6 +36,10 @@ export interface GameCallbacks {
   onSelection: (sel: { uid: string; name: string; itemId: string; variant?: string } | null) => void
   onCapacity: (seats: number) => void
   onPlacingChange: (placing: string | null) => void
+  /** Clubhouse editing: a new piece landed (the treasury pays for it). */
+  onClubPlaced?: (item: PlacedItem) => void
+  /** Clubhouse editing: the shared doc changed (debounce a push). */
+  onClubDocChanged?: () => void
   onLampsChanged: () => void
   onVisit: (cafe: DreamCafe | null) => void
   onSession: (session: Session | null) => void
@@ -92,6 +96,57 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
 
   const activeRoom = (): RoomDoc => (visiting ? visiting.room : store.save.room)
   const activePlaced = (): PlacedItem[] => (visiting ? visiting.placed : store.save.placed)
+
+  // ---------- club editing: furnishing the shared clubhouse ----------
+  // While a member edits the clubhouse, furnish operations mutate the
+  // VISITED doc instead of the home save, and every change is reported
+  // for a debounced push (last write wins, per the club design). All
+  // validity/ghost/seat reads go through activeRoom()/activePlaced(),
+  // so the whole edit pipeline sees the doc under edit.
+  let clubEditable = false
+  let clubUidN = 0
+  const isClubEditing = () => clubEditable && !!visiting
+  function afterClubDocChange() {
+    syncPlaced()
+    cb.onClubDocChanged?.()
+  }
+  function docPlace(itemId: string, variant: string | undefined, x: number, z: number, rot: 0 | 1 | 2 | 3, on?: string) {
+    if (!isClubEditing()) return store.placeItem(itemId, variant, x, z, rot, on)
+    const item: PlacedItem = { uid: `c${Date.now().toString(36)}${clubUidN++}`, itemId, x, z, rot }
+    if (variant) item.variant = variant
+    if (on) item.on = on
+    visiting!.placed.push(item)
+    afterClubDocChange()
+    cb.onClubPlaced?.(item) // the treasury pays for it (or takes it back)
+    return item
+  }
+  function docMove(uid: string, x: number, z: number, rot: 0 | 1 | 2 | 3, on?: string) {
+    if (!isClubEditing()) return store.moveItem(uid, x, z, rot, on)
+    const p = visiting!.placed.find((q) => q.uid === uid)
+    if (!p) return
+    p.x = x
+    p.z = z
+    p.rot = rot
+    if (on) p.on = on
+    else delete p.on
+    afterClubDocChange()
+  }
+  function docRotate(uid: string) {
+    if (!isClubEditing()) return store.rotateItem(uid)
+    const p = visiting!.placed.find((q) => q.uid === uid)
+    if (!p) return
+    p.rot = ((p.rot + 1) % 4) as 0 | 1 | 2 | 3
+    afterClubDocChange()
+  }
+  /** Remove from the doc (clubhouse: gone for good; home: back to inventory). */
+  function docRemove(uid: string) {
+    if (!isClubEditing()) return store.storeItem(uid)
+    const arr = visiting!.placed
+    for (const r of arr.filter((p) => p.on === uid)) arr.splice(arr.indexOf(r), 1)
+    const i = arr.findIndex((p) => p.uid === uid)
+    if (i >= 0) arr.splice(i, 1)
+    afterClubDocChange()
+  }
 
   // ---------- shell ----------
   function pendantGrid(): THREE.Vector3[] {
@@ -226,7 +281,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
   function overlaps(x: number, z: number, itemId: string, rot: number, ignoreUid?: string, onUid?: string): boolean {
     const [fw, fd] = footprintOf(itemId, rot)
     const mine = CATALOG[itemId]
-    for (const p of store.save.placed) {
+    for (const p of activePlaced()) {
       if (p.uid === ignoreUid) continue
       const e = CATALOG[p.itemId]
       if (e.noCollide || mine.noCollide) continue
@@ -303,12 +358,12 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     ignoreUid?: string,
     surfUid?: string | null
   ): { ok: boolean; on?: string; reason?: 'floor' } {
-    const { w, d } = store.save.room
+    const { w, d } = activeRoom()
     const entry = CATALOG[itemId]
     const [fw, fd] = footprintOf(itemId, rot)
     if (entry.placement === 'surface') {
-      let surf = surfUid ? store.save.placed.find((p) => p.uid === surfUid) : undefined
-      if (!surf) surf = store.save.placed.find((p) => CATALOG[p.itemId].surface && fitsOn(p, x, z, itemId, rot))
+      let surf = surfUid ? activePlaced().find((p) => p.uid === surfUid) : undefined
+      if (!surf) surf = activePlaced().find((p) => CATALOG[p.itemId].surface && fitsOn(p, x, z, itemId, rot))
       if (!surf || !fitsOn(surf, x, z, itemId, rot)) return { ok: false }
       if (overlaps(x, z, itemId, rot, ignoreUid, surf.uid)) return { ok: false }
       return { ok: true, on: surf.uid }
@@ -351,7 +406,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
 
   function startPlacing(itemId: string, variant?: string, editUid?: string) {
     cancelPlacing()
-    const rot = editUid ? store.save.placed.find((p) => p.uid === editUid)?.rot ?? 0 : 0
+    const rot = editUid ? activePlaced().find((p) => p.uid === editUid)?.rot ?? 0 : 0
     const ghost = makeGhost(itemId, variant)
     ghost.visible = false
     group.add(ghost)
@@ -361,7 +416,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       if (li) li.built.group.visible = false
       // the ghost starts ON the furniture (not wherever the mouse happens
       // to be) and stays there until the pointer actually drags away
-      const p = store.save.placed.find((q) => q.uid === editUid)
+      const p = activePlaced().find((q) => q.uid === editUid)
       if (p) {
         placing.holdFrom = null // armed: first pointer sample fills it in
         updateGhost(p.x, p.z, p.on)
@@ -396,7 +451,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     const v = validAt(x, z, placing.itemId, placing.rot, placing.editUid, surfUid)
     ghostAt = { x, z, ...v }
     const entry = CATALOG[placing.itemId]
-    const h = v.on ? CATALOG[store.save.placed.find((p) => p.uid === v.on)!.itemId].surface!.h : entry.placement === 'surface' ? 0.02 : 0
+    const h = v.on ? CATALOG[activePlaced().find((p) => p.uid === v.on)!.itemId].surface!.h : entry.placement === 'surface' ? 0.02 : 0
     placing.ghost.visible = true
     placing.ghost.position.set(x, h, z)
     placing.ghost.rotation.y = (placing.rot * Math.PI) / 2
@@ -411,14 +466,14 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     if (!placing || !ghostAt || !ghostAt.ok) return false
     if (placing.editUid) {
       // moving a surface drags its riders along
-      const before = store.save.placed.find((p) => p.uid === placing!.editUid)!
+      const before = activePlaced().find((p) => p.uid === placing!.editUid)!
       const dx = ghostAt.x - before.x
       const dz = ghostAt.z - before.z
-      store.moveItem(placing.editUid, ghostAt.x, ghostAt.z, placing.rot, ghostAt.on)
-      for (const rider of store.save.placed.filter((p) => p.on === placing!.editUid))
-        store.moveItem(rider.uid, rider.x + dx, rider.z + dz, rider.rot, rider.on)
+      docMove(placing.editUid, ghostAt.x, ghostAt.z, placing.rot, ghostAt.on)
+      for (const rider of activePlaced().filter((p) => p.on === placing!.editUid))
+        docMove(rider.uid, rider.x + dx, rider.z + dz, rider.rot, rider.on)
     } else {
-      store.placeItem(placing.itemId, placing.variant, ghostAt.x, ghostAt.z, placing.rot, ghostAt.on)
+      docPlace(placing.itemId, placing.variant, ghostAt.x, ghostAt.z, placing.rot, ghostAt.on)
     }
     sfx.place()
     cancelPlacing()
@@ -1181,11 +1236,11 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
   }
 
   function rotateInPlace(uid: string) {
-    const p = store.save.placed.find((q) => q.uid === uid)
+    const p = activePlaced().find((q) => q.uid === uid)
     if (!p) return
     const next = ((p.rot + 1) % 4) as 0 | 1 | 2 | 3
     if (validAt(p.x, p.z, p.itemId, next, p.uid).ok) {
-      store.rotateItem(uid)
+      docRotate(uid)
       sfx.tick()
     } else {
       toast('no room to turn it here ♪')
@@ -1298,7 +1353,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
         const uid = o.userData.uid as string
         // click = select · double-click = pick up to move (triple then rotates)
         if (clicksOn(uid) >= 2) {
-          const p = store.save.placed.find((q) => q.uid === uid)
+          const p = activePlaced().find((q) => q.uid === uid)
           if (p) {
             startPlacing(p.itemId, p.variant, uid)
             return true
@@ -1394,7 +1449,8 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
   return {
     handle,
     setMode(m: EditMode) {
-      if (visiting && m !== 'view') return // you can only edit your own café
+      // you can only edit your own café — or the clubhouse, furnish-only
+      if (visiting && m !== 'view' && !(clubEditable && m === 'furnish')) return
       mode = m
       if (m !== 'view') {
         leaveSeat() // stand up to edit
@@ -1408,6 +1464,16 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     getMode: () => mode,
     visit,
     getVisiting: () => visiting,
+    /** Members may furnish the clubhouse they're standing in. */
+    setClubEditable(on: boolean) {
+      clubEditable = on
+    },
+    /** Take back a clubhouse piece the treasury couldn't pay for. */
+    removeClubItem(uid: string) {
+      if (!isClubEditing()) return
+      if (selection === uid) setSelection(null)
+      docRemove(uid)
+    },
     leaveSeat,
     getFocusSec,
     getSession: () => session,
@@ -1475,12 +1541,12 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     furnitureUnderRay,
     /** Press-and-hold in furnish mode: tuck the piece back into inventory. */
     storeByUid(uid: string) {
-      const p = store.save.placed.find((q) => q.uid === uid)
+      const p = activePlaced().find((q) => q.uid === uid)
       if (!p) return
       if (selection === uid) setSelection(null)
-      store.storeItem(uid)
+      docRemove(uid)
       sfx.pop()
-      toast(`${CATALOG[p.itemId].name} tucked back into your inventory ♪`)
+      toast(isClubEditing() ? `${CATALOG[p.itemId].name} removed from the clubhouse ♪` : `${CATALOG[p.itemId].name} tucked back into your inventory ♪`)
     },
     /** Floating name tags: one per person in the room (minecraft-style). */
     getNameTags(): { name: string; x: number; y: number; z: number; color: string; real: boolean; lv?: number }[] {
@@ -1564,18 +1630,18 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     capacity,
     rotateSelected() {
       if (!selection) return
-      const p = store.save.placed.find((q) => q.uid === selection)!
+      const p = activePlaced().find((q) => q.uid === selection)!
       const next = ((p.rot + 1) % 4) as 0 | 1 | 2 | 3
-      if (validAt(p.x, p.z, p.itemId, next, p.uid).ok) store.rotateItem(selection)
+      if (validAt(p.x, p.z, p.itemId, next, p.uid).ok) docRotate(selection)
     },
     moveSelected() {
       if (!selection) return
-      const p = store.save.placed.find((q) => q.uid === selection)!
+      const p = activePlaced().find((q) => q.uid === selection)!
       startPlacing(p.itemId, p.variant, p.uid)
     },
     storeSelected() {
       if (!selection) return
-      store.storeItem(selection)
+      docRemove(selection)
       setSelection(null)
     },
   }

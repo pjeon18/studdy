@@ -297,10 +297,5 @@ export function buildGoals(ui: HTMLElement) {
   }, 120_000)
   setTimeout(paintBadge, 4000) // after boot settles
 
-  // clubs: coming later — the door is visible, just locked
-  const clubs = document.createElement('button')
-  clubs.className = 'glossy-btn clubs-tab rslot-tab locked'
-  clubs.textContent = '♜ clubs'
-  clubs.addEventListener('click', () => toast('study clubs unlock at level 10 — coming soon ♪'))
-  ui.appendChild(clubs)
+  // clubs: the tab lives with the club window in editor.ts now
 }

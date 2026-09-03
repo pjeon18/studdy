@@ -196,9 +196,9 @@ function sanitizeOpenings(raw: unknown, w: number, d: number): Opening[] {
 }
 
 /** Rebuild a stranger's café doc into something the renderer can trust. */
-function sanitizeCafe(ownerId: string, handle: string, ownerName: string, raw: unknown): DreamCafe | null {
-  if (!raw || typeof raw !== 'object') return null
-  const doc = raw as Record<string, unknown>
+/** Sanitize an untrusted {room, placed} doc (cafés and clubhouses alike). */
+export function sanitizeRoomPlaced(raw: unknown): { room: RoomDoc; placed: PlacedItem[] } {
+  const doc = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   const roomRaw = (doc.room ?? {}) as Record<string, unknown>
   const w = num(roomRaw.w, 8, 40, 16)
   const d = num(roomRaw.d, 6, 30, 12)
@@ -230,6 +230,13 @@ function sanitizeCafe(ownerId: string, handle: string, ownerName: string, raw: u
       placed.push(item)
     }
   }
+  return { room, placed }
+}
+
+function sanitizeCafe(ownerId: string, handle: string, ownerName: string, raw: unknown): DreamCafe | null {
+  if (!raw || typeof raw !== 'object') return null
+  const doc = raw as Record<string, unknown>
+  const { room, placed } = sanitizeRoomPlaced(raw)
   const infoRaw = (doc.info ?? {}) as Record<string, unknown>
   const music = ['lofi', 'rain', 'off'].includes(infoRaw.music as string) ? (infoRaw.music as string) : 'lofi'
   const name = (ownerName || 'someone').slice(0, 20)
@@ -246,7 +253,7 @@ function sanitizeCafe(ownerId: string, handle: string, ownerName: string, raw: u
   }
 }
 
-async function fetchProfiles(userIds: string[]): Promise<Map<string, PersonRef>> {
+export async function fetchProfiles(userIds: string[]): Promise<Map<string, PersonRef>> {
   const out = new Map<string, PersonRef>()
   const supa = getSupabase()
   if (!supa || !userIds.length) return out

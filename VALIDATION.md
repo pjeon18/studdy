@@ -920,3 +920,37 @@ Audited ahead of real accounts; findings fixed:
 - Verified in the pane: station click → lofi-3 streamed (206), label
   matched the schedule ("warm static" = track 3), reload rejoined the
   same track, chat send → bubble + duck with zero console errors.
+
+### Study clubs (2026-09-03) — Build Plan 2 · T4
+- supabase/phase6.sql (RUN IT after phase5): clubs + club_members
+  tables (5 seats, one club per person, level 10 = 2700 xp enforced
+  server-side) with all writes through definer RPCs — club_create /
+  club_join (block-aware: a blocked pair can't share a club) /
+  club_leave (leader succession, empty clubs dissolve) / club_kick
+  (leader only) / club_donate / club_spend (treasury can't go negative)
+  / club_save_doc (the shared room, last write wins). session_beat is
+  REPLACED: +10% xp per verified minute while a clubmate's session is
+  live (heartbeat in the last 3 min) — the warmth bonus is
+  server-verified like all leaderboard xp.
+- The clubhouse is a real visitable room (id club:<uuid>, its own
+  presence channel + radio schedule). Every member can FURNISH it: the
+  whole edit pipeline (ghosts, validity, walkability, seats) now reads
+  the doc under edit via activeRoom()/activePlaced(), and club edits
+  mutate the visited doc + push debounced (1.5s). Placements shop
+  straight from the catalog and the TREASURY pays: optimistic place →
+  club_spend → auto-revert with a kind toast if it can't pay (verified
+  in the pane offline: place → 'treasury is short' → clean revert).
+  Removing a clubhouse piece deletes it (no refunds, like real shared
+  spaces). Room structure is fixed 16×12 in v1 (furnish-only).
+- Clubs tab replaces the locked stub: below level 10 it shows the lock
+  note; otherwise create (name+handle) / join (handle); in a club —
+  roster with leader kick, treasury balance, +10/+50/+250 chip-ins
+  (local beans spent first, refunded if the cloud says no), clubhouse
+  visit, leave with confirm.
+- Verified in the pane (offline paths): tab lock state, local-only
+  message, club-edit placement pipeline with revert, home furnish
+  regression (inventory place unaffected, no club toast). Cloud flows
+  (create/join/donate/kick/+10% xp) need phase6.sql + two accounts —
+  field-test after running the SQL.
+- Deferred: club name on profile cards (needs a presence payload field),
+  clubhouse structural edits, live co-edit merging (LWW per spec).

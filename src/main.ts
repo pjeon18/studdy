@@ -36,6 +36,7 @@ import {
   focusSessionStart,
   focusSessionStop,
 } from './social'
+import { fetchMyClub, spendTreasury, saveClubDoc } from './clubs'
 import { whereIs } from './presence'
 import { DREAM_CAFES } from './cafes'
 import { toast } from './ui'
@@ -313,6 +314,25 @@ if (isShowcase) {
       // studying at a real person's café pays its owner for hosting you
       if (placeId?.startsWith('user:')) logStudy(placeId.slice(5), minutes)
     },
+    onClubPlaced: async (item) => {
+      // the treasury pays for clubhouse furniture — or takes it back
+      const price = CATALOG[item.itemId]?.price ?? 0
+      const left = await spendTreasury(price)
+      if (left < 0) {
+        game!.removeClubItem(item.uid)
+        toast('the treasury is short — chip in on the clubs tab ♪')
+      } else {
+        toast(`${CATALOG[item.itemId].name} for the clubhouse · ${left} ◍ left`)
+      }
+    },
+    onClubDocChanged: () => {
+      // last write wins: push the shared room a beat after edits settle
+      clearTimeout(clubPushT)
+      clubPushT = setTimeout(() => {
+        const v = game!.getVisiting()
+        if (v?.id.startsWith('club:')) saveClubDoc({ room: v.room, placed: v.placed })
+      }, 1500)
+    },
     onPatronCard: (data, x, y) => {
       ui.openProfileCard(x, y, data)
       // your first hello to a real person each day leaves them a bean
@@ -419,12 +439,15 @@ const chat = game ? buildChat(document.getElementById('ui')!, game, showBubble) 
 if (game) buildGoals(document.getElementById('ui')!)
 
 // accounts + cloud saves (no-op unless Supabase env vars are set)
+let clubPushT: ReturnType<typeof setTimeout> | undefined
+
 if (game) {
   initCloud().then(() => {
     // home radio schedule keys on the real uid once the session is up,
     // so visitors (who know this café as user:<uid>) hear the same station
     const u = cloudUser()
     if (u && !game!.getVisiting()) setStation(getStation(), 'user:' + u.id)
+    fetchMyClub() // warm the club cache so the tab knows its state
   })
   // realtime presence: real people in the room, live chat, directory counts
   initPresence({
