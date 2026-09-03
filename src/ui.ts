@@ -426,5 +426,6 @@ export function toast(msg: string) {
   toastEl.className = 'toast'
   toastEl.textContent = msg
   document.body.appendChild(toastEl)
-  setTimeout(() => toastEl?.remove(), 1600)
+  // linger long enough to actually read: short notes ~2.4s, long ones ~4s
+  setTimeout(() => toastEl?.remove(), Math.min(4200, 2200 + msg.length * 28))
 }

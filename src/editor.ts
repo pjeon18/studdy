@@ -131,10 +131,6 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
       <div class="set-row"><span>sound</span><button class="glossy-btn ed-mini set-sound"></button></div>
       <div class="set-row"><span>music volume</span><input type="range" class="lights-slider set-music" min="0" max="100" /></div>
       <div class="set-row"><span>name color</span><span class="ed-swatches set-namecolor"></span></div>
-      <div class="set-row"><span>look</span><span class="ed-ctrl">
-        <button class="glossy-btn ed-mini set-look" data-v="crisp">crisp</button>
-        <button class="glossy-btn ed-mini set-look" data-v="retro">retro ♪</button>
-      </span></div>
       <div class="set-row"><span>account</span><b class="set-acct"></b></div>
       <div class="set-acct-box">
         <input class="px-input set-email" type="email" placeholder="email for magic link…" />
@@ -175,19 +171,6 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     nameCtrl.appendChild(b)
   }
 
-  // crisp vs retro rendering — a pure view preference, applied in main
-  const lookBtns = setWin.querySelectorAll<HTMLButtonElement>('.set-look')
-  const paintLook = () => {
-    const cur = localStorage.getItem('studdy-look') === 'retro' ? 'retro' : 'crisp'
-    lookBtns.forEach((b) => b.classList.toggle('btn-pink', b.dataset.v === cur))
-  }
-  lookBtns.forEach((b) =>
-    b.addEventListener('click', () => {
-      window.dispatchEvent(new CustomEvent('studdy:look', { detail: b.dataset.v }))
-      paintLook()
-    })
-  )
-
   const shareRow = setWin.querySelector('.set-share-row') as HTMLElement
   const shareBtn = setWin.querySelector('.set-share') as HTMLButtonElement
   shareBtn.addEventListener('click', async () => {
@@ -218,7 +201,6 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     setSound.classList.toggle('btn-mint', isEnabled())
     setMusic.value = String(Math.round(getMusicVolume() * 100))
     paintNameSwatches()
-    paintLook()
     const handle = getMyHandle()
     shareRow.classList.toggle('hidden', !handle)
     cardRow.classList.toggle('hidden', !handle)

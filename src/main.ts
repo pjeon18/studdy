@@ -56,26 +56,43 @@ const isShowcase = params.has('showcase')
 const stage = document.getElementById('stage')!
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-// two looks, one renderer: "crisp" supersamples; "retro" renders at 1/1.5
-// scale and lets the browser nearest-upscale it into chunky pixels
-export type Look = 'crisp' | 'retro'
-const LOOK_KEY = 'studdy-look'
-function applyLook(look: Look) {
-  if (look === 'retro') {
-    renderer.setPixelRatio(1 / 1.5)
-    renderer.domElement.style.imageRendering = 'pixelated'
-  } else {
-    // phones already render at high dpr — skip the supersampling AND cap
-    // the buffer at 2x so 3x phones don't melt
-    const coarse = window.matchMedia('(pointer: coarse)').matches
-    renderer.setPixelRatio(coarse ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio * 1.5, 3))
-    renderer.domElement.style.imageRendering = ''
-  }
+// One look — crisp — with ADAPTIVE quality: the renderer supersamples
+// where the GPU can afford it and steps itself down when frames sag, so
+// weaker laptops stay responsive instead of slideshowing. The discovered
+// level persists, and each boot tries one step better (self-healing).
+const QUALITY_KEY = 'studdy-quality'
+const QUALITY = [1, 0.85, 0.7, 0.55]
+const coarsePointer = window.matchMedia('(pointer: coarse)').matches
+const basePixelRatio = coarsePointer
+  ? Math.min(window.devicePixelRatio, 2) // phones are dense already — no supersample
+  : Math.min(window.devicePixelRatio * 1.5, 3)
+let qIdx = Math.max(0, Math.min(QUALITY.length - 1, (Number(localStorage.getItem(QUALITY_KEY)) || 0) - 1))
+function applyQuality() {
+  renderer.setPixelRatio(Math.max(0.75, basePixelRatio * QUALITY[qIdx]))
   renderer.setSize(window.innerWidth, window.innerHeight)
-  localStorage.setItem(LOOK_KEY, look)
 }
-window.addEventListener('studdy:look', (e) => applyLook((e as CustomEvent).detail as Look))
-applyLook(localStorage.getItem(LOOK_KEY) === 'retro' ? 'retro' : 'crisp')
+applyQuality()
+// the frame monitor (fed from the render loop): sustained low fps → step down
+let qFrames = 0
+let qWindowAt = performance.now()
+let qDirty = false // a hidden tab throttles rAF — never judge that window
+document.addEventListener('visibilitychange', () => {
+  qDirty = true
+})
+function qualityTick(now: number) {
+  qFrames++
+  if (now - qWindowAt < 5000) return
+  const fps = (qFrames * 1000) / (now - qWindowAt)
+  if (!qDirty && !document.hidden && fps < 34 && qIdx < QUALITY.length - 1) {
+    qIdx++
+    applyQuality()
+    localStorage.setItem(QUALITY_KEY, String(qIdx))
+    console.info(`[studdy] frames sagged (${fps.toFixed(0)}fps) — render scale down to ${QUALITY[qIdx]}`)
+  }
+  qFrames = 0
+  qWindowAt = now
+  qDirty = false
+}
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -435,6 +452,9 @@ function showBubble(anchor: () => THREE.Vector3 | null, text: string, ms = 4500)
   }, ms)
 }
 
+let pokeNowBanner: (() => void) | null = null
+let nowPokeT: ReturnType<typeof setTimeout> | undefined
+
 const chat = game ? buildChat(document.getElementById('ui')!, game, showBubble) : null
 if (game) buildGoals(document.getElementById('ui')!)
 
@@ -456,7 +476,10 @@ if (game) {
       chat?.addLine(from, text)
       showBubble(() => game!.getSimAnchor(from), text)
     },
-    onLobby: (counts) => editor?.setLiveCounts(counts),
+    onLobby: (counts) => {
+      editor?.setLiveCounts(counts)
+      pokeNowBanner?.() // the "friend is studying" banner reacts in seconds, not a minute
+    },
   })
   // napkin edits, headphone flips, and where you're standing ride along
   setInterval(() => {
@@ -492,9 +515,17 @@ if (game) {
     if (!game || game.getVisiting()) return nowBanner.classList.add('hidden')
     if (Date.now() < Number(localStorage.getItem('studdy-now-snooze') ?? 0)) return
     const { friends } = await listFriends()
+    const myUid = cloudUser()?.id
     for (const f of friends) {
       const at = whereIs(f.userId)
       if (!at) continue
+      // a friend at MY café isn't an invitation out — it's company arriving
+      if (myUid && at === `user:${myUid}`) {
+        nbText.textContent = `♥ ${f.name} came to study at your café ♪`
+        nowGo = () => {}
+        nowBanner.classList.remove('hidden')
+        return
+      }
       if (at === `user:${f.userId}`) {
         nbText.textContent = `♥ ${f.name} is studying at their café — join ♪`
         nowGo = async () => {
@@ -516,6 +547,10 @@ if (game) {
   }
   setTimeout(refreshNow, 12_000) // after presence settles
   setInterval(refreshNow, 60_000)
+  pokeNowBanner = () => {
+    clearTimeout(nowPokeT)
+    nowPokeT = setTimeout(refreshNow, 2500) // debounced: lobby syncs come in bursts
+  }
 }
 
 // ---------- keep the screen awake while studying (phones) ----------
@@ -860,6 +895,7 @@ function step(dt: number) {
 }
 function frame() {
   lastFrame = performance.now()
+  qualityTick(lastFrame)
   step(Math.min(clockT.getDelta(), 0.05))
   requestAnimationFrame(frame)
 }

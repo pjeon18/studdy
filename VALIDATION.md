@@ -993,3 +993,27 @@ Audited ahead of real accounts; findings fixed:
   drops cadence) stay on the plan.
 - Dev handle: __studdy.store is now the LIVE store instance (devtools
   import() can get a different copy after HMR).
+
+### Feedback round (2026-09-03): retro removed, adaptive quality, banner fix
+- RETRO LOOK REMOVED (Paul: "overly pixelated and buggy") — settings row,
+  the studdy:look event, and the 1/1.5 pixelated render path are gone.
+  One look now: crisp.
+- ADAPTIVE QUALITY replaces the manual toggle: base render scale is
+  dpr×1.5 (cap 3; phones dpr cap 2, no supersample), and a frame monitor
+  steps the render scale down (1 → .85 → .7 → .55) when fps stays under
+  34 for a 5s window (hidden-tab windows never judged). The level
+  persists ('studdy-quality') and each boot retries one step higher —
+  self-healing. This is the fix for weak-laptop lag: supersampling at
+  dpr 2 was pushing 9× the pixels of 1×.
+- Treatment-D coloring RE-VERIFIED as correctly implemented: game ramp =
+  lab D exactly (violet-dominant deep shadow 0.36/0.29/0.88, warm
+  highlights), per-mode ramps lerped in lighting.apply; the only
+  divergence is the deliberate day-highlight soften (1.32→1.16) from
+  Paul's brightness retune.
+- THE "she wants me to visit" MYSTERY: it was the now-banner reading
+  stale presence — while a friend walked into YOUR café, the 60s-old
+  lobby data still said "studying at their café — join ♪". Fixed: a
+  friend at your own café now reads "♥ {name} came to study at your
+  café ♪" (no travel), and the banner refreshes ~2.5s after every lobby
+  sync instead of only once a minute.
+- Toasts linger to be read: 2.2s + 28ms/char, capped 4.2s (was 1.6s).
