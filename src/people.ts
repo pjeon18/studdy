@@ -11,7 +11,83 @@ export interface PersonOpts {
   skin?: string
   hairStyle?: 'short' | 'long'
   glasses?: boolean
+  /** Wardrobe hat id (see HATS) — worn everywhere you go. */
+  hat?: string
 }
+
+// ---------- the wardrobe: hats (bought at the boutique, docs/ECONOMY.md) ----------
+// Drawn on the head grid: x 0..16 (8 = center), z 0..15 (15 = face),
+// the crown tops out at y 13.
+export const HATS: { id: string; name: string; price: number; draw: (g: VoxelGrid) => void }[] = [
+  {
+    id: 'beret', name: 'beret', price: 200,
+    draw(g) {
+      g.fill(1, 14, 2, 15, 15, 13, '#C24545')
+      g.fill(3, 16, 4, 13, 16, 11, '#C24545') // the puff
+      g.fill(7, 17, 7, 9, 17, 8, '#963A3A') // the little stem
+    },
+  },
+  {
+    id: 'beanie', name: 'beanie', price: 180,
+    draw(g) {
+      g.fill(1, 12, 1, 15, 14, 14, '#7CC9AC') // fold band (sits low)
+      g.fill(2, 15, 2, 14, 16, 13, '#8FD4B8') // dome
+      g.fill(4, 17, 4, 12, 17, 11, '#8FD4B8')
+      g.fill(7, 18, 6, 9, 19, 9, '#FFF6E4') // pompom
+    },
+  },
+  {
+    id: 'cat-ears', name: 'cat ears', price: 400,
+    draw(g) {
+      // a soft hood band with two little ears
+      g.fill(1, 13, 1, 15, 14, 14, '#4A3A30')
+      g.fill(2, 15, 3, 5, 17, 7, '#4A3A30') // left ear
+      g.fill(3, 15, 4, 4, 16, 6, '#FFB3C7') // inner
+      g.fill(11, 15, 3, 14, 17, 7, '#4A3A30') // right ear
+      g.fill(12, 15, 4, 13, 16, 6, '#FFB3C7')
+    },
+  },
+  {
+    id: 'flower-clip', name: 'flower clip', price: 150,
+    draw(g) {
+      g.fill(13, 12, 10, 15, 14, 12, '#FFF6E4') // petals
+      g.set(14, 13, 11, '#FFD98E') // the heart
+      g.set(12, 13, 11, '#FFF6E4')
+      g.set(15, 12, 10, '#FFF6E4')
+    },
+  },
+  {
+    id: 'mushroom-cap', name: 'mushroom cap', price: 320,
+    draw(g) {
+      g.fill(0, 14, 1, 16, 15, 14, '#D95555') // wide cap brim
+      g.fill(1, 16, 2, 15, 17, 13, '#D95555')
+      g.fill(4, 18, 4, 12, 18, 11, '#D95555')
+      g.fill(3, 16, 4, 5, 17, 6, '#FFF6E4') // spots
+      g.fill(11, 16, 9, 13, 17, 11, '#FFF6E4')
+      g.fill(7, 18, 6, 8, 18, 7, '#FFF6E4')
+    },
+  },
+  {
+    id: 'paper-crown', name: 'paper crown', price: 260,
+    draw(g) {
+      g.fill(2, 13, 2, 14, 14, 13, '#E8C25A')
+      for (let x = 2; x <= 14; x += 3) g.fill(x, 15, 2, x + 1, 16, 3, '#E8C25A') // front points
+      for (let x = 2; x <= 14; x += 3) g.fill(x, 15, 12, x + 1, 16, 13, '#E8C25A') // back points
+      g.set(8, 14, 2, '#FF8FAF') // the jewel
+    },
+  },
+]
+export const HAT_IDS = new Set(HATS.map((h) => h.id))
+
+// tag charms: a little glyph before your name, everywhere it floats
+export const CHARMS: { id: string; glyph: string; name: string; price: number }[] = [
+  { id: 'charm-star', glyph: '✦', name: 'star', price: 120 },
+  { id: 'charm-moon', glyph: '☾', name: 'moon', price: 120 },
+  { id: 'charm-bloom', glyph: '⚘', name: 'bloom', price: 120 },
+  { id: 'charm-heart', glyph: '♥', name: 'heart', price: 120 },
+  { id: 'charm-note', glyph: '♬', name: 'note', price: 120 },
+]
+export const CHARM_GLYPHS = new Set(CHARMS.map((c) => c.glyph))
 
 export type Pose = 'sit' | 'stand'
 
@@ -98,6 +174,9 @@ export function buildPerson(opts: PersonOpts, pose: Pose = 'sit'): Person {
     hd.fill(0, -4, 12, 1, -1, 15, opts.hair) // front strands
     hd.fill(15, -4, 12, 16, -1, 15, opts.hair)
   }
+  // the hat rides the same grid so it turns and bobs with the head
+  const hat = HATS.find((h) => h.id === opts.hat)
+  if (hat) hat.draw(hd)
   const headMesh = hd.build()
   headMesh.scale.setScalar(VOX)
   headMesh.position.set(-17 * VOX / 2, 0, -16 * VOX / 2)

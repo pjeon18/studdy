@@ -1,8 +1,11 @@
 // The styling panel behind the shop mirrors: barbershop edits hair & skin,
-// the boutique edits sweater & glasses. Changes apply to the live avatar.
+// the boutique edits sweater & glasses — and sells the WARDROBE (hats, tag
+// charms), the personal endgame sinks from docs/ECONOMY.md. Base looks stay
+// free forever; the paid pieces are pure expression.
 import * as store from './store'
 import { SEAT_COLORS } from './items'
-import { drawPortrait } from './ui'
+import { HATS, CHARMS } from './people'
+import { drawPortrait, toast } from './ui'
 import { sfx } from './sounds'
 
 export const SKIN_TONES = ['#FFDCBD', '#F3C79F', '#DFA878', '#B07A4C', '#8A5A34']
@@ -104,6 +107,62 @@ export function openSalon(ui: HTMLElement, kind: 'barber' | 'boutique' | 'all') 
       { v: 'false', label: 'none' },
       { v: 'true', label: 'on ♪' },
     ])
+
+    // ---------- the wardrobe: hats + tag charms (owned forever) ----------
+    const wardRow = (
+      label: string,
+      k: 'hat' | 'charm',
+      entries: { id: string; label: string; price: number; value: string }[]
+    ) => {
+      const row = document.createElement('div')
+      row.className = 'ed-row salon-ward'
+      row.innerHTML = `<span>${label}</span><span class="ed-ctrl salon-ward-btns"></span>`
+      const ctrl = row.querySelector('.ed-ctrl') as HTMLElement
+      const repaint = () => {
+        ctrl.innerHTML = ''
+        const none = document.createElement('button')
+        none.className = 'glossy-btn ed-mini' + (!store.save.avatar[k] ? ' active-station' : '')
+        none.textContent = 'none'
+        none.addEventListener('click', () => {
+          sfx.tick()
+          store.setAvatar({ [k]: '' } as never)
+          repaint()
+          paint()
+        })
+        ctrl.appendChild(none)
+        for (const e of entries) {
+          const owned = store.save.wardrobe.includes(e.id)
+          const worn = store.save.avatar[k] === e.value
+          const b = document.createElement('button')
+          b.className = 'glossy-btn ed-mini' + (worn ? ' active-station' : '')
+          b.innerHTML = owned ? e.label : `${e.label} <i class="ward-price">${e.price}◍</i>`
+          b.addEventListener('click', () => {
+            if (!store.save.wardrobe.includes(e.id)) {
+              if (!store.buyWardrobe(e.id, e.price)) {
+                toast(`${e.price} ◍ — keep studying ♪`)
+                return
+              }
+              sfx.coin()
+              toast(`the ${e.label.replace(/<[^>]*>/g, '')} is yours forever ♪`)
+            } else {
+              sfx.tick()
+            }
+            store.setAvatar({ [k]: worn ? '' : e.value } as never)
+            repaint()
+            paint()
+          })
+          ctrl.appendChild(b)
+        }
+      }
+      repaint()
+      rows.appendChild(row)
+    }
+    wardRow('hats', 'hat', HATS.map((h) => ({ id: h.id, label: h.name, price: h.price, value: h.id })))
+    wardRow('tag charm', 'charm', CHARMS.map((c) => ({ id: c.id, label: `${c.glyph} ${c.name}`, price: c.price, value: c.glyph })))
+    const wnote = document.createElement('div')
+    wnote.className = 'ed-note'
+    wnote.textContent = 'hats and charms follow you to every café — everyone sees them ♪'
+    rows.appendChild(wnote)
   }
   const note = document.createElement('div')
   note.className = 'ed-note'

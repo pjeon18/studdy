@@ -9,6 +9,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { getSupabase, cloudUser, cloudConfigured } from './cloud'
 import * as store from './store'
+import { HAT_IDS, CHARM_GLYPHS } from './people'
 
 export interface PatronState {
   /** Full user id — lets profile cards offer real friend requests. */
@@ -21,6 +22,9 @@ export interface PatronState {
   glasses: boolean
   /** Their chosen name-tag color. */
   nameColor: string
+  /** Wardrobe: hat id + tag charm glyph ('' = none). */
+  hat: string
+  charm: string
   /** Their current level (shown beside the name tag). */
   level: number
   /** Seat they're on in the current café (null = wandering). */
@@ -79,6 +83,8 @@ function myState(): PatronState {
     hairStyle: a.hairStyle,
     glasses: a.glasses,
     nameColor: a.nameColor && HEX.test(a.nameColor) ? a.nameColor : '#FFFFFF',
+    hat: a.hat ?? '',
+    charm: a.charm ?? '',
     level: store.levelInfo().level,
     seatKey: null,
     x: 0,
@@ -110,6 +116,8 @@ function cleanPatron(key: string, raw: unknown): RemotePatron | null {
     hairStyle: r.hairStyle === 'long' ? 'long' : 'short',
     glasses: r.glasses === true,
     nameColor: color(r.nameColor, '#FFFFFF'),
+    hat: typeof r.hat === 'string' && HAT_IDS.has(r.hat) ? r.hat : '',
+    charm: typeof r.charm === 'string' && CHARM_GLYPHS.has(r.charm) ? r.charm : '',
     level: typeof r.level === 'number' && isFinite(r.level) ? Math.min(999, Math.max(1, Math.round(r.level))) : 1,
     seatKey: typeof r.seatKey === 'string' ? r.seatKey.slice(0, 48) : null,
     x: typeof r.x === 'number' && isFinite(r.x) ? Math.min(80, Math.max(0, r.x)) : 0,

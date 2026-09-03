@@ -22,6 +22,10 @@ export interface Avatar {
   glasses: boolean
   /** Floating name-tag color (hex). Default white. */
   nameColor?: string
+  /** Wardrobe hat id ('' = none). Bought at the boutique. */
+  hat?: string
+  /** Name-tag charm glyph ('' = none). Bought at the boutique. */
+  charm?: string
 }
 
 // Open-ended: the shell resolves ids from its FLOORS/WALLS catalogs (with fallback)
@@ -41,7 +45,7 @@ export type Placement = 'floor' | 'surface' | 'wall'
 export interface CatalogItem {
   id: string
   name: string
-  category: 'seating' | 'tables' | 'counter' | 'decor' | 'rugs' | 'plants' | 'things' | 'wall'
+  category: 'seating' | 'tables' | 'counter' | 'decor' | 'rugs' | 'plants' | 'things' | 'wall' | 'atelier'
   /** Price in beans. */
   price: number
   /** Footprint in world units, before rotation (w along x, d along z). */
@@ -148,6 +152,8 @@ export interface SaveDoc {
   goals: GoalsState
   /** Café theme sets the player owns (shop → themes). */
   themes: string[]
+  /** Wardrobe pieces owned (hats, tag charms — boutique). */
+  wardrobe: string[]
   /** Daily focus streak. One rest day pauses it; longer gaps start over. */
   streak: { count: number; best: number; lastDay: string }
 }

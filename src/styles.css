@@ -1192,3 +1192,6 @@ textarea.px-input { resize: none; line-height: 1.35; }
   .tour-bubble { max-width: calc(100vw - 24px); }
   .modal-backdrop { touch-action: none; }
 }
+
+.salon-ward .salon-ward-btns { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; max-width: 210px; }
+.ward-price { font-style: normal; font-size: 11px; color: var(--ink-2); }

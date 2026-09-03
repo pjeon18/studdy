@@ -1072,3 +1072,28 @@ Audited ahead of real accounts; findings fixed:
   silent no-op like everything else.
 - Paul's half of T8: run phase7.sql; verify Supabase backups are on
   (dashboard → Database → Backups); custom domain optional/later.
+
+### Endgame sinks + the economy pass (2026-09-03)
+- docs/ECONOMY.md is now the pricing law: 1 focused minute = 1◍ scaled
+  by level; price bands impulse 8–45 / session 45–150 / commitment
+  150–400 / atelier 250–800; sinks are expression only, never power;
+  identity basics (skin, hair, length, structure) stay free forever.
+- focusRate soft tail: +0.05/level past 16, hard cap 3.0 at lv 26 — a
+  lv-21 player earns 2.75◍/min again instead of sitting at the old cap.
+- THE ATELIER (new shop tab): six animated endgame showpieces — café
+  cat 600 (breathes, flicks its tail; gray/tuxedo/ginger), fireplace
+  500 (flickering flames + warm light), aquarium 450 (three fish
+  swimming laps), grandfather clock 320 (swinging pendulum), candelabra
+  380 (three flames + glow), espresso deluxe 280 (steam). All verified
+  rendering + animating in the pane. Gotcha fixed en route: an item
+  update() must scale voxel meshes RELATIVE to VOX (setting scale.y = 1
+  stretched the cat into a 12-unit tower).
+- THE WARDROBE (boutique): six hats (flower clip 150 → cat ears 400)
+  drawn on the head grid so they turn and bob with the head, and five
+  name-tag charms (✦ ☾ ⚘ ♥ ♬, 120 each). Owned forever in
+  save.wardrobe; buy-then-wear in one tap; hats + charms travel through
+  presence (validated against the known sets) so everyone in the room
+  sees them, on the body and on the floating tag. Verified: beret +
+  ✦ charm rendering on the player.
+- Base looks (skin tones, hair colors, hair length, glasses) remain
+  free — identity is never paywalled, per the economy doc.

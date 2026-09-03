@@ -58,6 +58,7 @@ function starter(): SaveDoc {
     lifetimeBeans: 60,
     goals: { custom: [], missionsClaimed: [], counters: {} },
     themes: [],
+    wardrobe: [],
     streak: { count: 0, best: 0, lastDay: '' },
   }
 }
@@ -82,6 +83,7 @@ function load(): SaveDoc {
         doc.lifetimeBeans ??= doc.beans // best guess for saves from before we tracked it
         doc.streak ??= { count: 0, best: 0, lastDay: '' }
         doc.themes ??= []
+        doc.wardrobe ??= []
         doc.goals ??= { custom: [], missionsClaimed: [], counters: {} }
         doc.goals.custom ??= []
         doc.goals.missionsClaimed ??= []
@@ -318,6 +320,15 @@ export function buyTheme(id: string, price: number): boolean {
   return true
 }
 
+/** Buy a wardrobe piece (hat / tag charm). Owning it again is free. */
+export function buyWardrobe(id: string, price: number): boolean {
+  if (save.wardrobe.includes(id)) return true
+  if (!spendBeans(price)) return false
+  save.wardrobe.push(id)
+  commit('avatar')
+  return true
+}
+
 export function rotateItem(uidStr: string) {
   const p = save.placed.find((q) => q.uid === uidStr)
   if (!p) return
@@ -418,10 +429,12 @@ export function addBeans(n: number) {
 }
 
 // ---------- focused-time economy ----------
-/** Beans per focused minute — grows gently with level, hard-capped at 2.5. */
+/** Beans per focused minute (docs/ECONOMY.md): +0.1/level to 2.5 at lv 16,
+ *  then a soft tail of +0.05/level up to the hard cap of 3.0 at lv 26. */
 export function focusRate(): number {
   const { level } = levelInfo()
-  return Math.min(2.5, 1 + 0.1 * (level - 1))
+  if (level <= 16) return Math.min(2.5, 1 + 0.1 * (level - 1))
+  return Math.min(3.0, 2.5 + 0.05 * (level - 16))
 }
 
 export interface FocusResult {

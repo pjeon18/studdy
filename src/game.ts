@@ -650,6 +650,8 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     uid?: string
     nameColor?: string
     level?: number
+    hat?: string
+    charm?: string
   }
 
   interface Occupant {
@@ -672,6 +674,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       skin: a.skin,
       hairStyle: a.hairStyle,
       glasses: a.glasses,
+      hat: a.hat,
     }
   }
 
@@ -812,6 +815,8 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
         skin: p.skin,
         hairStyle: p.hairStyle,
         glasses: p.glasses,
+        hat: p.hat,
+        charm: p.charm,
         real: true,
         uid: p.uid || undefined,
         nameColor: p.nameColor,
@@ -846,6 +851,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
           skin: p.skin,
           hairStyle: p.hairStyle,
           glasses: p.glasses,
+          hat: p.hat,
         },
         'stand'
       )
@@ -1684,14 +1690,15 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     /** Floating name tags: one per person in the room (minecraft-style). */
     getNameTags(): { name: string; x: number; y: number; z: number; color: string; real: boolean; lv?: number }[] {
       const out: { name: string; x: number; y: number; z: number; color: string; real: boolean; lv?: number }[] = []
-      const myName = store.save.info.name || 'you'
+      const myCharm = store.save.avatar.charm
+      const myName = (myCharm ? myCharm + ' ' : '') + (store.save.info.name || 'you')
       const myColor = store.save.avatar.nameColor ?? '#FFFFFF'
       const myLv = store.levelInfo().level
       for (const o of occupants.values()) {
         const p = o.group.position
         if (o.persona)
           out.push({
-            name: o.persona.name,
+            name: (o.persona.charm ? o.persona.charm + ' ' : '') + o.persona.name,
             x: p.x,
             y: p.y + 1.78,
             z: p.z,
@@ -1704,7 +1711,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       for (const r of remoteStanding.values()) {
         const p = r.group.position
         out.push({
-          name: r.patron.name,
+          name: (r.patron.charm ? r.patron.charm + ' ' : '') + r.patron.name,
           x: p.x,
           y: p.y + 2.42,
           z: p.z,

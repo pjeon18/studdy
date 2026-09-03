@@ -1385,6 +1385,203 @@ function neonMoon(): BuiltItem {
   return { group }
 }
 
+// ---------- the atelier: animated endgame showpieces (docs/ECONOMY.md) ----------
+// Expensive on purpose — each one moves, glows, or breathes, so the room
+// itself says "someone studied a long time for this."
+
+function cafeCat(variant?: string): BuiltItem {
+  const group = new THREE.Group()
+  const fur = variant === 'tuxedo' ? '#3A3230' : variant === 'ginger' ? '#D98D4E' : '#B7BBC9'
+  const belly = variant === 'tuxedo' ? '#FFFFFF' : variant === 'ginger' ? '#F2C9A0' : '#E4E6EC'
+  const g = new VoxelGrid()
+  // a round cushion…
+  g.fill(-10, 0, -10, 10, 2, 10, PAL.pinkMilk)
+  g.carve(-10, 0, -10, -8, 2, -8)
+  g.carve(8, 0, -10, 10, 2, -8)
+  g.carve(-10, 0, 8, -8, 2, 10)
+  g.carve(8, 0, 8, 10, 2, 10)
+  // …with a curled-up loaf on it
+  g.roundedBox(-6, 3, -5, 6, 8, 5, fur)
+  g.fill(-4, 3, -3, 4, 4, 3, belly)
+  g.roundedBox(2, 6, -8, 8, 11, -2, fur) // the head, resting forward
+  g.set(3, 11, -6, fur) // ears
+  g.set(7, 11, -6, fur)
+  g.set(4, 8, -8, '#4A3A30') // sleeping eyes (little dashes)
+  g.set(6, 8, -8, '#4A3A30')
+  g.set(5, 7, -8, PAL.blush)
+  group.add(vox(g))
+  // the tail: its own mesh so it can flick
+  const tg = new VoxelGrid()
+  tg.fill(0, 0, 0, 1, 1, 8, fur)
+  tg.fill(0, 1, 8, 1, 3, 9, fur)
+  const tail = vox(tg)
+  tail.position.set(-7 * VOX, 4 * VOX, -1 * VOX)
+  group.add(tail)
+  let nextFlick = 2 + Math.random() * 4
+  return {
+    group,
+    update(_dt, t) {
+      // mostly still, with a slow breath and the occasional tail flick
+      // (the vox mesh's base scale IS the voxel size — breathe relative to it)
+      const breathe = 1 + Math.sin(t * 1.4) * 0.012
+      group.children[0].scale.y = VOX * breathe
+      const flick = Math.max(0, Math.sin((t - nextFlick) * 3))
+      tail.rotation.y = flick * 0.5
+      if (t > nextFlick + 2) nextFlick = t + 3 + Math.random() * 5
+    },
+  }
+}
+
+function fireplace(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  const brick = '#B0705A'
+  const brickDark = '#96604E'
+  g.fill(-22, 0, -8, 22, 30, 6, brick) // the chimney breast
+  for (let y = 3; y < 30; y += 6) for (let x = -22 + ((y / 3) % 2) * 4; x < 22; x += 8) g.fill(x, y, 6, x + 3, y + 2, 6, brickDark)
+  g.carve(-12, 0, -2, 12, 18, 8) // the firebox
+  g.fill(-14, 30, -9, 14, 33, 7, PAL.honey) // mantel
+  g.fill(-12, 0, -2, 12, 1, 5, '#4A3A30') // hearth floor
+  g.fill(-8, 1, 0, 8, 3, 3, '#6B4A34') // logs
+  group.add(vox(g))
+  // flames: two crossed bright planes that flicker
+  const flameMat = new THREE.MeshBasicMaterial({ color: '#FFB347', transparent: true, opacity: 0.9, side: THREE.DoubleSide })
+  const coreMat = new THREE.MeshBasicMaterial({ color: '#FFE79A', transparent: true, opacity: 0.95, side: THREE.DoubleSide })
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.9, 6), flameMat)
+  const core = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.55, 6), coreMat)
+  flame.position.set(0, 0.75, 0.1)
+  core.position.set(0, 0.6, 0.1)
+  group.add(flame, core)
+  const lampLight = new THREE.PointLight('#FFA05C', 1.2, 16, 1.5)
+  lampLight.position.set(0, 0.8, 0.4)
+  group.add(lampLight)
+  return {
+    group,
+    lampLight,
+    update(_dt, t) {
+      const f = 1 + Math.sin(t * 9) * 0.12 + Math.sin(t * 23 + 1.3) * 0.07
+      flame.scale.set(f, 1 + Math.sin(t * 11) * 0.16, f)
+      core.scale.setScalar(1 + Math.sin(t * 13 + 0.6) * 0.14)
+      lampLight.intensity *= 0.9 + Math.sin(t * 17) * 0.04 + 0.1
+    },
+  }
+}
+
+function aquarium(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.fill(-14, 0, -6, 14, 4, 6, PAL.honeyDark) // the stand
+  g.fill(-13, 26, -5, 13, 27, 5, PAL.honeyDark) // the lid
+  g.fill(-12, 4, -4, 12, 5, 4, '#D9C9A8') // sand
+  g.fill(-8, 5, -1, -6, 10, 1, PAL.mintDeep) // kelp
+  g.fill(6, 5, 0, 7, 12, 1, PAL.mintDeep)
+  group.add(vox(g))
+  // the water: one translucent box
+  const water = new THREE.Mesh(
+    new THREE.BoxGeometry(26 * VOX, 21 * VOX, 10 * VOX),
+    new THREE.MeshBasicMaterial({ color: '#9FD1E8', transparent: true, opacity: 0.4 })
+  )
+  water.position.set(0, (5 + 10.5) * VOX, 0)
+  group.add(water)
+  // three little fish swimming laps
+  const fishMats = ['#FF8FAF', '#FFD98E', '#8FB8E8'].map((c) => new THREE.MeshBasicMaterial({ color: c }))
+  const fish = fishMats.map((m, i) => {
+    const f = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.09, 0.07), m)
+    f.position.y = (9 + i * 5) * VOX
+    group.add(f)
+    return f
+  })
+  return {
+    group,
+    update(_dt, t) {
+      fish.forEach((f, i) => {
+        const s = t * (0.5 + i * 0.17) + i * 2.1
+        const dir = Math.cos(s) > 0 ? 1 : -1
+        f.position.x = Math.sin(s) * 0.6
+        f.position.z = Math.sin(s * 0.7 + i) * 0.14
+        f.scale.x = dir // flip to face swim direction
+        f.position.y = (9 + i * 5) * VOX + Math.sin(t * 2 + i) * 0.03
+      })
+    },
+  }
+}
+
+function grandfatherClock(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.fill(-7, 0, -4, 7, 4, 4, PAL.board) // base
+  g.fill(-6, 4, -3, 6, 44, 3, '#6B4A34') // the case
+  g.carve(-4, 8, 0, 4, 30, 4) // glass door opening
+  g.fill(-8, 44, -4, 8, 48, 4, PAL.board) // hood
+  g.fill(-5, 33, 2, 5, 43, 3, PAL.cream) // the face
+  g.fill(0, 38, 3, 0, 41, 3, '#4A3A30') // hands
+  g.fill(1, 38, 3, 2, 38, 3, '#4A3A30')
+  group.add(vox(g))
+  // the pendulum: a rod + gold bob on its own pivot
+  const pend = new THREE.Group()
+  const rod = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.15, 0.04), new THREE.MeshBasicMaterial({ color: '#8A6A4F' }))
+  rod.position.y = -0.58
+  const bob = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.05, 16), new THREE.MeshBasicMaterial({ color: '#E8C25A' }))
+  bob.rotation.x = Math.PI / 2
+  bob.position.y = -1.12
+  pend.add(rod, bob)
+  pend.position.set(0, 33 * VOX, 1 * VOX)
+  group.add(pend)
+  return {
+    group,
+    update(_dt, t) {
+      pend.rotation.z = Math.sin(t * 2.4) * 0.16 // a calm, real-ish beat
+    },
+  }
+}
+
+function candelabra(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  const gold = '#D9B25A'
+  g.fill(-5, 0, -5, 5, 2, 5, gold) // foot
+  g.fill(-1, 2, -1, 1, 34, 1, gold) // stem
+  g.fill(-10, 34, -1, 10, 35, 1, gold) // arms
+  g.fill(-10, 35, -1, -8, 38, 1, gold) // cups
+  g.fill(8, 35, -1, 10, 38, 1, gold)
+  g.fill(-1, 35, -1, 1, 38, 1, gold)
+  g.fill(-10, 38, -1, -8, 42, 1, PAL.cream) // candles
+  g.fill(8, 38, -1, 10, 42, 1, PAL.cream)
+  g.fill(-1, 38, -1, 1, 42, 1, PAL.cream)
+  group.add(vox(g))
+  const flameMat = new THREE.MeshBasicMaterial({ color: '#FFD98E' })
+  const flames = [-9, 0, 9].map((x) => {
+    const f = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 5), flameMat)
+    f.position.set(x * VOX, 44 * VOX, 0)
+    group.add(f)
+    return f
+  })
+  const lampLight = new THREE.PointLight('#FFD08A', 1, 14, 1.5)
+  lampLight.position.set(0, 46 * VOX, 0)
+  group.add(lampLight)
+  return {
+    group,
+    lampLight,
+    update(_dt, t) {
+      flames.forEach((f, i) => f.scale.setScalar(1 + Math.sin(t * 12 + i * 2.4) * 0.22))
+    },
+  }
+}
+
+function espressoDeluxe(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.fill(-10, 0, -6, 10, 3, 6, PAL.chromeDark) // base tray
+  g.fill(-9, 3, -5, 9, 16, 3, PAL.chrome) // body
+  g.fill(-9, 16, -5, 9, 19, 5, PAL.chromeDark) // top tank
+  g.fill(-3, 8, 3, 3, 10, 6, PAL.chromeDark) // group head
+  g.fill(-6, 12, 5, 6, 14, 5, '#C24545') // brand stripe
+  g.fill(-2, 3, 3, 2, 5, 5, PAL.cream) // a little cup waiting
+  group.add(vox(g))
+  const steam = makeSteam(0, 20, 0, 0.9)
+  return { group, update: steam.update }
+}
+
 // ---------- the catalog ----------
 export const CATALOG: Record<string, Entry> = {
   stool: {
@@ -1456,6 +1653,26 @@ export const CATALOG: Record<string, Entry> = {
   },
   'menu-board': {
     id: 'menu-board', price: 10, name: 'menu board', category: 'counter', footprint: [1.6, 0.6], placement: 'floor', build: menuBoard,
+  },
+  // ---------- the atelier: animated endgame showpieces ----------
+  'cafe-cat': {
+    id: 'cafe-cat', price: 600, name: 'café cat', category: 'atelier', footprint: [1.5, 1.5], placement: 'floor',
+    variants: ['gray', 'tuxedo', 'ginger'], build: cafeCat,
+  },
+  fireplace: {
+    id: 'fireplace', price: 500, name: 'fireplace', category: 'atelier', footprint: [3, 1.1], placement: 'floor', build: fireplace,
+  },
+  aquarium: {
+    id: 'aquarium', price: 450, name: 'aquarium', category: 'atelier', footprint: [2, 0.9], placement: 'floor', build: aquarium,
+  },
+  'grandfather-clock': {
+    id: 'grandfather-clock', price: 320, name: 'grandfather clock', category: 'atelier', footprint: [1.1, 0.7], placement: 'floor', build: grandfatherClock,
+  },
+  candelabra: {
+    id: 'candelabra', price: 380, name: 'candelabra', category: 'atelier', footprint: [0.9, 0.9], placement: 'floor', build: candelabra,
+  },
+  'espresso-deluxe': {
+    id: 'espresso-deluxe', price: 280, name: 'espresso deluxe', category: 'atelier', footprint: [1.4, 0.9], placement: 'floor', build: espressoDeluxe,
   },
   // ---------- the gallery wave: wall décor (footprint = [width, height]) ----------
   poster: {
