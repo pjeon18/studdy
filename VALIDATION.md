@@ -954,3 +954,42 @@ Audited ahead of real accounts; findings fixed:
   field-test after running the SQL.
 - Deferred: club name on profile cards (needs a presence payload field),
   clubhouse structural edits, live co-edit merging (LWW per spec).
+
+### Presence ghosts + smoothness (2026-09-03)
+- THE DOUBLE-CHARACTER BUG (field report): a reload or reconnect gives
+  the same person a new presence key while the dead connection's ghost
+  lingers until the server times it out — you'd see two of them for up
+  to ~a minute. Fixed threefold: (1) emitPatrons dedupes by uid keeping
+  the freshest claim, so one body per person, always; (2) lobby counts
+  dedupe by uid the same way; (3) a pagehide untrack says goodbye
+  before the socket dies, so the common reload case cleans up
+  instantly instead of waiting for the timeout.
+- Standing remotes now GLIDE to their reported position (and face the
+  way they're walking) instead of teleporting on every presence tick.
+
+### The gallery wave (2026-09-03) — Build Plan 2 · T6
+- WALL DÉCOR: a whole new placement type. PlacedItem gains wall
+  ('back'|'left') + y (hang height); the ghost sticks to whichever wall
+  the pointer meets, snaps to a quarter-unit grid inside the hangable
+  band (0.9–7.0 units), and refuses spots over windows/doors or other
+  décor. Wall items skip floor collision/walkability entirely, don't
+  rotate (they hang flat), and work in the clubhouse too (treasury +
+  shared doc carry the wall fields; visitor sanitizers validate them).
+- Six wall pieces (category 'wall', auto-tabbed in the shop): poster
+  (sunset/cat/plants/moon variants), wall clock, wall shelf, pennant
+  garland, framed photo, neon moon. Verified: hung a sunset poster on
+  the back wall — placement, validity (window overlap correctly
+  refused), and render all clean.
+- CAFÉ THEMES: shop → themes sells floor+walls+door as a set, built
+  entirely from existing shell styles — strawberry milk, matcha
+  library, seaside morning, lavender dusk, snow studio, midnight ink
+  (45–75◍). Buying applies it and you own it forever (apply ♪ re-dresses
+  the café any time; themes are home-only). Owned list lives in
+  save.themes. Verified: bought strawberry milk → pink checker floor +
+  pink walls applied live.
+- T7 note: the surface/texture pass shipped earlier as treatment D
+  (hue-shifted toon ramp + crisp/retro toggle) — the lab-first process
+  BUILD_PLAN_2 T7 describes. Remaining T6 ideas (L-wing rooms, monthly
+  drops cadence) stay on the plan.
+- Dev handle: __studdy.store is now the LIVE store instance (devtools
+  import() can get a different copy after HMR).

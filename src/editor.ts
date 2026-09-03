@@ -496,7 +496,29 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   const shopList = shopWin.querySelector('.shop-list') as HTMLElement
   const beanCount = shopWin.querySelector('.bean-count') as HTMLElement
   let shopCat = 'all'
-  const cats = ['all', ...new Set(Object.values(CATALOG).map((e) => e.category))]
+  const cats = ['all', ...new Set(Object.values(CATALOG).map((e) => e.category)), 'themes']
+
+  // café themes: floor + walls + door sold as a set (all from existing styles)
+  const THEMES = [
+    { id: 'strawberry-milk', name: 'strawberry milk', price: 60, floor: 'checker', wall: 'pink', door: '#F6D9E3' },
+    { id: 'matcha-library', name: 'matcha library', price: 60, floor: 'walnut', wall: 'sage', door: '#3E7C5B' },
+    { id: 'seaside-morning', name: 'seaside morning', price: 60, floor: 'checker-sky', wall: 'sky', door: '#7383BC' },
+    { id: 'lavender-dusk', name: 'lavender dusk', price: 60, floor: 'carpet-lavender', wall: 'lavender', door: '#FDFCF6' },
+    { id: 'snow-studio', name: 'snow studio', price: 45, floor: 'snow', wall: 'snow', door: '#FDFCF6' },
+    { id: 'midnight-ink', name: 'midnight ink', price: 75, floor: 'checker-ink', wall: 'charcoal', door: '#5C5C68' },
+  ]
+  const themeSwatch = (t: (typeof THEMES)[number]) => {
+    const f = FLOOR_CHOICES.find((c) => c.id === t.floor)?.css ?? '#EEE'
+    const w = WALL_CHOICES.find((c) => c.id === t.wall)?.css ?? '#FFF'
+    return `<span class="theme-swatch"><i style="background:${w}"></i><i style="background:${f}"></i><i style="background:${t.door}"></i></span>`
+  }
+  function applyTheme(t: (typeof THEMES)[number]) {
+    store.setFloor(t.floor)
+    store.setWallStyle(t.wall)
+    store.setDoorStyle({ doorColor: t.door })
+    toast(`${t.name} ♪`)
+    sfx.pop()
+  }
   for (const c of cats) {
     const b = document.createElement('button')
     b.className = 'glossy-btn shop-tab' + (c === 'all' ? ' active' : '')
@@ -512,6 +534,33 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   function refreshShop() {
     beanCount.innerHTML = `${store.save.beans} ${beanImg(13)}`
     shopList.innerHTML = ''
+    if (shopCat === 'themes') {
+      for (const t of THEMES) {
+        const owned = store.save.themes.includes(t.id)
+        const row = document.createElement('div')
+        row.className = 'shop-row'
+        row.innerHTML = `${themeSwatch(t)}<span class="shop-name">${t.name}<i>floor · walls · door</i></span><b class="shop-price">${owned ? 'owned' : `${t.price} ${beanImg(12)}`}</b>`
+        const buy = document.createElement('button')
+        buy.className = 'glossy-btn ed-mini' + (owned ? ' btn-mint' : '')
+        buy.textContent = owned ? 'apply ♪' : 'buy'
+        if (!owned && store.save.beans < t.price) buy.classList.add('disabled')
+        buy.addEventListener('click', () => {
+          if (visitingCafe) {
+            toast('themes dress your own café ♪')
+            return
+          }
+          if (store.buyTheme(t.id, t.price)) {
+            applyTheme(t)
+            refreshShop()
+          } else {
+            toast('not enough beans…')
+          }
+        })
+        row.appendChild(buy)
+        shopList.appendChild(row)
+      }
+      return
+    }
     for (const e of Object.values(CATALOG)) {
       if (shopCat !== 'all' && e.category !== shopCat) continue
       const row = document.createElement('div')

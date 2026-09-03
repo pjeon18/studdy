@@ -110,18 +110,37 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     syncPlaced()
     cb.onClubDocChanged?.()
   }
-  function docPlace(itemId: string, variant: string | undefined, x: number, z: number, rot: 0 | 1 | 2 | 3, on?: string) {
-    if (!isClubEditing()) return store.placeItem(itemId, variant, x, z, rot, on)
+  function docPlace(
+    itemId: string,
+    variant: string | undefined,
+    x: number,
+    z: number,
+    rot: 0 | 1 | 2 | 3,
+    on?: string,
+    wallSpec?: { wall: 'back' | 'left'; y: number } | false
+  ) {
+    if (!isClubEditing()) return store.placeItem(itemId, variant, x, z, rot, on, wallSpec || undefined)
     const item: PlacedItem = { uid: `c${Date.now().toString(36)}${clubUidN++}`, itemId, x, z, rot }
     if (variant) item.variant = variant
     if (on) item.on = on
+    if (wallSpec) {
+      item.wall = wallSpec.wall
+      item.y = wallSpec.y
+    }
     visiting!.placed.push(item)
     afterClubDocChange()
     cb.onClubPlaced?.(item) // the treasury pays for it (or takes it back)
     return item
   }
-  function docMove(uid: string, x: number, z: number, rot: 0 | 1 | 2 | 3, on?: string) {
-    if (!isClubEditing()) return store.moveItem(uid, x, z, rot, on)
+  function docMove(
+    uid: string,
+    x: number,
+    z: number,
+    rot: 0 | 1 | 2 | 3,
+    on?: string,
+    wallSpec?: { wall: 'back' | 'left'; y: number } | false
+  ) {
+    if (!isClubEditing()) return store.moveItem(uid, x, z, rot, on, wallSpec || undefined)
     const p = visiting!.placed.find((q) => q.uid === uid)
     if (!p) return
     p.x = x
@@ -129,6 +148,10 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     p.rot = rot
     if (on) p.on = on
     else delete p.on
+    if (wallSpec) {
+      p.wall = wallSpec.wall
+      p.y = wallSpec.y
+    }
     afterClubDocChange()
   }
   function docRotate(uid: string) {
@@ -230,6 +253,18 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
 
   // ---------- placed items ----------
   function applyTransform(obj: THREE.Object3D, p: PlacedItem) {
+    if (p.wall) {
+      // wall décor hangs at its stored height, flat against its wall
+      const y = p.y ?? 3.4
+      if (p.wall === 'back') {
+        obj.position.set(p.x, y, 0.08)
+        obj.rotation.y = 0
+      } else {
+        obj.position.set(0.08, y, p.z)
+        obj.rotation.y = Math.PI / 2
+      }
+      return
+    }
     const surfaceOf = p.on ? live.get(p.on)?.data : undefined
     const h = surfaceOf ? CATALOG[surfaceOf.itemId].surface?.h ?? 0 : 0
     obj.position.set(p.x, h, p.z)
@@ -285,6 +320,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       if (p.uid === ignoreUid) continue
       const e = CATALOG[p.itemId]
       if (e.noCollide || mine.noCollide) continue
+      if (e.placement === 'wall' || mine.placement === 'wall') continue
       // floor items collide with floor items; surface riders only with riders on the same surface
       const mineOnSurface = mine.placement === 'surface'
       const theirsOnSurface = e.placement === 'surface'
@@ -324,7 +360,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     const boxes: [number, number, number, number][] = []
     const add = (x: number, z: number, itemId: string, rot: number) => {
       const e = CATALOG[itemId]
-      if (e.noCollide || e.placement === 'surface') return
+      if (e.noCollide || e.placement === 'surface' || e.placement === 'wall') return
       const [fw, fd] = footprintOf(itemId, rot)
       boxes.push([x - fw / 2 - 0.3, z - fd / 2 - 0.3, x + fw / 2 + 0.3, z + fd / 2 + 0.3])
     }
@@ -389,7 +425,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     holdFrom?: { x: number; z: number } | null
     startedAt?: number
   } | null = null
-  let ghostAt: { x: number; z: number; ok: boolean; on?: string; reason?: 'floor' } | null = null
+  let ghostAt: { x: number; z: number; ok: boolean; on?: string; reason?: 'floor'; wall?: 'back' | 'left'; y?: number } | null = null
   const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
   const hitPoint = new THREE.Vector3()
 
@@ -462,6 +498,56 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     })
   }
 
+  // ---------- wall décor placement ----------
+  const backWallPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
+  const leftWallPlane = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0)
+  const WALL_TOP = 7.0 // hangable band (the walls stand 7.5 units)
+
+  /** A clear stretch of wall: inside the band, off the openings, off other décor. */
+  function wallFree(wall: 'back' | 'left', pos: number, y: number, itemId: string, ignoreUid?: string): boolean {
+    const room = activeRoom()
+    const [fw, fh] = CATALOG[itemId].footprint
+    const len = wall === 'back' ? room.w : room.d
+    if (pos - fw / 2 < 0.1 || pos + fw / 2 > len - 0.1) return false
+    if (y - fh / 2 < 0.9 || y + fh / 2 > WALL_TOP) return false
+    for (const o of room.openings) {
+      if (o.wall !== wall) continue
+      if (pos + fw / 2 > o.start && pos - fw / 2 < o.start + o.width) return false
+    }
+    for (const p of activePlaced()) {
+      if (p.uid === ignoreUid || p.wall !== wall) continue
+      const [ow, oh] = CATALOG[p.itemId].footprint
+      const opos = wall === 'back' ? p.x : p.z
+      const oy = p.y ?? 3.4
+      if (Math.abs(pos - opos) < (fw + ow) / 2 && Math.abs(y - oy) < (fh + oh) / 2) return false
+    }
+    return true
+  }
+
+  function updateWallGhost(wall: 'back' | 'left', posRaw: number, yRaw: number) {
+    if (!placing) return
+    const room = activeRoom()
+    const [fw, fh] = CATALOG[placing.itemId].footprint
+    const len = wall === 'back' ? room.w : room.d
+    const pos = Math.round(Math.min(len - fw / 2 - 0.1, Math.max(fw / 2 + 0.1, posRaw)) * 4) / 4
+    const y = Math.round(Math.min(WALL_TOP - fh / 2, Math.max(fh / 2 + 0.9, yRaw)) * 4) / 4
+    const ok = wallFree(wall, pos, y, placing.itemId, placing.editUid)
+    ghostAt = { x: wall === 'back' ? pos : 0.08, z: wall === 'left' ? pos : 0.08, ok, wall, y }
+    placing.ghost.visible = true
+    if (wall === 'back') {
+      placing.ghost.position.set(pos, y, 0.08)
+      placing.ghost.rotation.y = 0
+    } else {
+      placing.ghost.position.set(0.08, y, pos)
+      placing.ghost.rotation.y = Math.PI / 2
+    }
+    const mat = ok ? validMat : invalidMat
+    placing.ghost.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (m.isMesh) m.material = mat
+    })
+  }
+
   function confirmPlace(): boolean {
     if (!placing || !ghostAt || !ghostAt.ok) return false
     if (placing.editUid) {
@@ -469,11 +555,11 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       const before = activePlaced().find((p) => p.uid === placing!.editUid)!
       const dx = ghostAt.x - before.x
       const dz = ghostAt.z - before.z
-      docMove(placing.editUid, ghostAt.x, ghostAt.z, placing.rot, ghostAt.on)
+      docMove(placing.editUid, ghostAt.x, ghostAt.z, placing.rot, ghostAt.on, ghostAt.wall && { wall: ghostAt.wall, y: ghostAt.y! })
       for (const rider of activePlaced().filter((p) => p.on === placing!.editUid))
         docMove(rider.uid, rider.x + dx, rider.z + dz, rider.rot, rider.on)
     } else {
-      docPlace(placing.itemId, placing.variant, ghostAt.x, ghostAt.z, placing.rot, ghostAt.on)
+      docPlace(placing.itemId, placing.variant, ghostAt.x, ghostAt.z, placing.rot, ghostAt.on, ghostAt.wall && { wall: ghostAt.wall, y: ghostAt.y! })
     }
     sfx.place()
     cancelPlacing()
@@ -637,7 +723,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
   // real visitors who are standing/wandering (not on a seat)
   const remoteStanding = new Map<
     string,
-    { group: THREE.Group; animate: (dt: number, t: number) => void; patron: RemotePatron }
+    { group: THREE.Group; animate: (dt: number, t: number) => void; patron: RemotePatron; target?: { x: number; z: number } }
   >()
 
   function removeRemoteStanding(key: string) {
@@ -749,7 +835,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       const existing = remoteStanding.get(key)
       if (existing) {
         existing.patron = p
-        existing.group.position.set(x, 0, z)
+        existing.target = { x, z } // glide there in update(), don't teleport
         continue
       }
       const person = buildPerson(
@@ -1192,6 +1278,17 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       return
     }
     hoverInfo = null
+    if (CATALOG[placing.itemId].placement === 'wall') {
+      // the ghost sticks to whichever wall the pointer meets first
+      const room = activeRoom()
+      const a = new THREE.Vector3()
+      const b = new THREE.Vector3()
+      const hitBack = ray.ray.intersectPlane(backWallPlane, a) && a.x > -1 && a.x < room.w + 1 && a.y > 0 && a.y < 9
+      const hitLeft = ray.ray.intersectPlane(leftWallPlane, b) && b.z > -1 && b.z < room.d + 1 && b.y > 0 && b.y < 9
+      if (hitBack && (!hitLeft || a.distanceTo(ray.ray.origin) <= b.distanceTo(ray.ray.origin))) updateWallGhost('back', a.x, a.y)
+      else if (hitLeft) updateWallGhost('left', b.z, b.y)
+      return
+    }
     // a just-picked-up piece stays where it was until the pointer really moves
     if (placing.holdFrom !== undefined && ray.ray.intersectPlane(floorPlane, hitPoint)) {
       if (placing.holdFrom === null) {
@@ -1238,6 +1335,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
   function rotateInPlace(uid: string) {
     const p = activePlaced().find((q) => q.uid === uid)
     if (!p) return
+    if (CATALOG[p.itemId].placement === 'wall') return // it hangs flat
     const next = ((p.rot + 1) % 4) as 0 | 1 | 2 | 3
     if (validAt(p.x, p.z, p.itemId, next, p.uid).ok) {
       docRotate(uid)
@@ -1423,7 +1521,24 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       shell?.update(dt)
       for (const li of live.values()) li.built.update?.(dt, t)
       for (const o of occupants.values()) o.animate(dt, t)
-      for (const r of remoteStanding.values()) r.animate(dt, t)
+      for (const r of remoteStanding.values()) {
+        r.animate(dt, t)
+        // remotes glide toward their reported spot instead of teleporting
+        if (r.target) {
+          const dx = r.target.x - r.group.position.x
+          const dz = r.target.z - r.group.position.z
+          const dist = Math.hypot(dx, dz)
+          if (dist < 0.03) {
+            r.group.position.set(r.target.x, 0, r.target.z)
+            r.target = undefined
+          } else {
+            const step = Math.min(dist, Math.max(2.2, dist * 4) * dt)
+            r.group.position.x += (dx / dist) * step
+            r.group.position.z += (dz / dist) * step
+            r.group.rotation.y = Math.atan2(dx, dz) // face the way you're walking
+          }
+        }
+      }
       standing?.animate(dt, t)
       // carried: dangle gently while held
       if (standing && dragState) standing.group.rotation.z = Math.sin(t * 6) * 0.06
@@ -1631,6 +1746,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     rotateSelected() {
       if (!selection) return
       const p = activePlaced().find((q) => q.uid === selection)!
+      if (CATALOG[p.itemId].placement === 'wall') return // it hangs flat
       const next = ((p.rot + 1) % 4) as 0 | 1 | 2 | 3
       if (validAt(p.x, p.z, p.itemId, next, p.uid).ok) docRotate(selection)
     },

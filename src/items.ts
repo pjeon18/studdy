@@ -1283,6 +1283,108 @@ function fairyGarland(): BuiltItem {
   return { group, fairyMats }
 }
 
+// ---------- wall décor (hung on the back/left walls, centered on origin) ----------
+// Wall items are drawn centered on BOTH x and y (the hanging point is the
+// middle of the piece) and flat against z≈0, facing +z into the room.
+
+function poster(variant?: string): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.fill(-11, -14, 0, 11, 14, 1, PAL.honeyDark) // frame
+  g.fill(-9, -12, 1, 9, 12, 2, PAL.cream) // paper
+  if (variant === 'cat') {
+    g.fill(-4, -6, 2, 4, 2, 2, '#8A6A4F') // the loaf
+    g.fill(-6, 0, 2, -4, 4, 2, '#8A6A4F') // ears-ish head
+    g.fill(-6, -8, 2, 5, -7, 2, PAL.pink) // cushion
+  } else if (variant === 'plants') {
+    g.fill(-6, -9, 2, -4, -2, 2, PAL.mintDeep)
+    g.fill(-7, -1, 2, -3, 4, 2, PAL.mint)
+    g.fill(2, -9, 2, 4, 0, 2, PAL.mintDeep)
+    g.fill(0, 1, 2, 6, 6, 2, PAL.mint)
+  } else if (variant === 'moon') {
+    g.fill(-3, 2, 2, 5, 9, 2, PAL.butter)
+    g.fill(-6, -9, 2, 7, -8, 2, PAL.lavenderDeep) // hills
+    g.fill(-9, -12, 2, 9, -9, 2, PAL.lavender)
+  } else {
+    // sunset
+    g.fill(-9, 4, 2, 9, 12, 2, PAL.butter)
+    g.fill(-9, -2, 2, 9, 3, 2, PAL.pink)
+    g.fill(-9, -12, 2, 9, -3, 2, PAL.pinkDeep)
+    g.fill(-3, 2, 2, 3, 7, 2, '#FFE9B0') // the sun
+  }
+  group.add(vox(g))
+  return { group }
+}
+
+function wallClock(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.fill(-8, -8, 0, 8, 8, 1, PAL.honeyDark)
+  g.fill(-6, -6, 1, 6, 6, 2, PAL.cream)
+  g.fill(0, 0, 2, 0, 4, 2, PAL.board) // minute hand
+  g.fill(1, 0, 2, 3, 0, 2, PAL.board) // hour hand
+  g.fill(0, 6, 2, 0, 6, 2, PAL.pinkDeep) // twelve tick
+  group.add(vox(g))
+  return { group }
+}
+
+function wallShelf(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.fill(-16, -2, 0, 16, 0, 6, PAL.honey) // the plank
+  g.fill(-14, -6, 0, -12, -2, 1, PAL.honeyDark) // brackets
+  g.fill(12, -6, 0, 14, -2, 1, PAL.honeyDark)
+  // a few books + a tiny plant living on it
+  g.fill(-13, 1, 1, -11, 9, 5, PAL.pinkDeep)
+  g.fill(-10, 1, 1, -8, 8, 5, PAL.mintDeep)
+  g.fill(-7, 1, 1, -5, 10, 5, PAL.lavenderDeep)
+  g.fill(6, 1, 2, 10, 4, 5, '#C97B63') // pot
+  g.fill(7, 5, 2, 9, 8, 4, PAL.mintDeep)
+  group.add(vox(g))
+  return { group }
+}
+
+function pennantGarland(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  const flags = [PAL.pink, PAL.butter, PAL.mint, PAL.lavender, PAL.pinkDeep]
+  for (let i = 0; i < 5; i++) {
+    const cx = -20 + i * 10
+    const dip = i % 2 === 0 ? 0 : -2 // the string sags between pins
+    g.fill(cx - 4, 4 + dip, 0, cx + 4, 5 + dip, 1, PAL.board) // string run
+    g.fill(cx - 3, -1 + dip, 0, cx + 3, 3 + dip, 1, flags[i]) // flag
+    g.fill(cx - 2, -4 + dip, 0, cx + 2, -2 + dip, 1, flags[i])
+    g.fill(cx - 1, -6 + dip, 0, cx + 1, -5 + dip, 1, flags[i])
+  }
+  group.add(vox(g))
+  return { group }
+}
+
+function framedPhoto(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  g.fill(-6, -7, 0, 6, 7, 1, PAL.butter) // little gold frame
+  g.fill(-4, -5, 1, 4, 5, 2, PAL.pinkMilk)
+  g.fill(-2, -2, 2, 2, 2, 2, PAL.pinkDeep) // a heart-ish middle
+  g.fill(-1, -3, 2, 1, -3, 2, PAL.pinkDeep)
+  group.add(vox(g))
+  return { group }
+}
+
+function neonMoon(): BuiltItem {
+  const group = new THREE.Group()
+  const g = new VoxelGrid()
+  // crescent: bright butter with a warm halo ring
+  g.fill(-2, 6, 0, 6, 8, 1, '#FFE79A')
+  g.fill(2, 2, 0, 8, 6, 1, '#FFE79A')
+  g.fill(4, -4, 0, 8, 2, 1, '#FFE79A')
+  g.fill(2, -8, 0, 8, -4, 1, '#FFE79A')
+  g.fill(-2, -10, 0, 6, -8, 1, '#FFE79A')
+  g.fill(0, -1, 0, 2, 1, 1, PAL.pinkMilk) // a wink of pink
+  group.add(vox(g))
+  return { group }
+}
+
 // ---------- the catalog ----------
 export const CATALOG: Record<string, Entry> = {
   stool: {
@@ -1354,6 +1456,26 @@ export const CATALOG: Record<string, Entry> = {
   },
   'menu-board': {
     id: 'menu-board', price: 10, name: 'menu board', category: 'counter', footprint: [1.6, 0.6], placement: 'floor', build: menuBoard,
+  },
+  // ---------- the gallery wave: wall décor (footprint = [width, height]) ----------
+  poster: {
+    id: 'poster', price: 12, name: 'poster', category: 'wall', footprint: [1.5, 1.9], placement: 'wall',
+    variants: ['sunset', 'cat', 'plants', 'moon'], build: poster,
+  },
+  'wall-clock': {
+    id: 'wall-clock', price: 14, name: 'wall clock', category: 'wall', footprint: [1.1, 1.1], placement: 'wall', build: wallClock,
+  },
+  'wall-shelf': {
+    id: 'wall-shelf', price: 18, name: 'wall shelf', category: 'wall', footprint: [2.1, 1.1], placement: 'wall', build: wallShelf,
+  },
+  'pennant-garland': {
+    id: 'pennant-garland', price: 10, name: 'pennant garland', category: 'wall', footprint: [3.1, 1.0], placement: 'wall', build: pennantGarland,
+  },
+  'framed-photo': {
+    id: 'framed-photo', price: 8, name: 'framed photo', category: 'wall', footprint: [0.9, 1.0], placement: 'wall', build: framedPhoto,
+  },
+  'neon-moon': {
+    id: 'neon-moon', price: 26, name: 'neon moon', category: 'wall', footprint: [1.2, 1.3], placement: 'wall', build: neonMoon,
   },
   bookshelf: {
     id: 'bookshelf', price: 35, name: 'bookshelf', category: 'decor', footprint: [4, 1.1], placement: 'floor', variants: WOOD_VARIANTS, build: bookshelf,

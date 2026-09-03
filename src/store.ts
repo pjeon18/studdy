@@ -57,6 +57,7 @@ function starter(): SaveDoc {
     xp: 0,
     lifetimeBeans: 60,
     goals: { custom: [], missionsClaimed: [], counters: {} },
+    themes: [],
     streak: { count: 0, best: 0, lastDay: '' },
   }
 }
@@ -80,6 +81,7 @@ function load(): SaveDoc {
         doc.xp ??= 0
         doc.lifetimeBeans ??= doc.beans // best guess for saves from before we tracked it
         doc.streak ??= { count: 0, best: 0, lastDay: '' }
+        doc.themes ??= []
         doc.goals ??= { custom: [], missionsClaimed: [], counters: {} }
         doc.goals.custom ??= []
         doc.goals.missionsClaimed ??= []
@@ -263,10 +265,22 @@ export function setVariant(uidStr: string, variant: string) {
 }
 
 // ---------- furnish mutations ----------
-export function placeItem(itemId: string, variant: string | undefined, x: number, z: number, rot: 0 | 1 | 2 | 3, onUid?: string): PlacedItem | null {
+export function placeItem(
+  itemId: string,
+  variant: string | undefined,
+  x: number,
+  z: number,
+  rot: 0 | 1 | 2 | 3,
+  onUid?: string,
+  wallSpec?: { wall: 'back' | 'left'; y: number }
+): PlacedItem | null {
   if ((save.inventory[itemId] ?? 0) <= 0) return null
   save.inventory[itemId]--
   const p: PlacedItem = { uid: uid(), itemId, variant, x, z, rot, on: onUid }
+  if (wallSpec) {
+    p.wall = wallSpec.wall
+    p.y = wallSpec.y
+  }
   save.placed.push(p)
   commit('placed')
   commit('inventory')
@@ -274,14 +288,34 @@ export function placeItem(itemId: string, variant: string | undefined, x: number
   return p
 }
 
-export function moveItem(uidStr: string, x: number, z: number, rot: 0 | 1 | 2 | 3, onUid?: string) {
+export function moveItem(
+  uidStr: string,
+  x: number,
+  z: number,
+  rot: 0 | 1 | 2 | 3,
+  onUid?: string,
+  wallSpec?: { wall: 'back' | 'left'; y: number }
+) {
   const p = save.placed.find((q) => q.uid === uidStr)
   if (!p) return
   p.x = x
   p.z = z
   p.rot = rot
   p.on = onUid
+  if (wallSpec) {
+    p.wall = wallSpec.wall
+    p.y = wallSpec.y
+  }
   commit('placed')
+}
+
+/** Buy a café theme set (idempotent — owning it again is free). */
+export function buyTheme(id: string, price: number): boolean {
+  if (save.themes.includes(id)) return true
+  if (!spendBeans(price)) return false
+  save.themes.push(id)
+  commit('inventory')
+  return true
 }
 
 export function rotateItem(uidStr: string) {

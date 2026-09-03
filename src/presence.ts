@@ -141,16 +141,27 @@ function emitPatrons() {
   if (!channel || !handlers) return
   const me = myKey()
   const state = channel.presenceState<PatronState>()
-  const out: RemotePatron[] = []
   const myUid = cloudUser()?.id
+  // ONE body per person: a reload (or reconnect) gives the same person a
+  // fresh presence key while the dead connection's ghost lingers until the
+  // server times it out — keep only the freshest claim per uid, so nobody
+  // ever appears twice in the room
+  const byUid = new Map<string, RemotePatron>()
+  const anon: RemotePatron[] = []
   for (const [key, metas] of Object.entries(state)) {
     if (key === me) continue
     // the LAST meta is the freshest when a client re-tracked mid-sync
     const p = cleanPatron(key, metas[metas.length - 1])
     // never render your own other tabs/devices — one ghuh is enough
-    if (p && p.uid !== myUid) out.push(p)
+    if (!p || p.uid === myUid) continue
+    if (!p.uid) {
+      anon.push(p)
+      continue
+    }
+    const cur = byUid.get(p.uid)
+    if (!cur || p.since > cur.since) byUid.set(p.uid, p)
   }
-  handlers.onPatrons(out)
+  handlers.onPatrons([...byUid.values(), ...anon])
 }
 
 let joinSeq = 0
@@ -226,12 +237,16 @@ function ensureLobby() {
     if (lobby !== ch || !handlers) return
     const counts: Record<string, number> = {}
     lobbyByUid.clear()
-    for (const metas of Object.values(ch.presenceState<{ at: string; uid: string }>())) {
+    const counted = new Set<string>() // one head per person, ghosts don't count
+    for (const [key, metas] of Object.entries(ch.presenceState<{ at: string; uid: string }>())) {
       const at = typeof metas[0]?.at === 'string' ? metas[0].at.slice(0, 48) : ''
       if (!at) continue
-      counts[at] = (counts[at] ?? 0) + 1
       const uid = metas[0]?.uid
-      if (typeof uid === 'string' && UUID.test(uid)) lobbyByUid.set(uid, at)
+      const person = typeof uid === 'string' && UUID.test(uid) ? uid : key
+      if (counted.has(person)) continue
+      counted.add(person)
+      counts[at] = (counts[at] ?? 0) + 1
+      if (person === uid) lobbyByUid.set(uid, at)
     }
     handlers.onLobby(counts)
   })
@@ -285,6 +300,17 @@ export function presenceDebug() {
 export function initPresence(h: Handlers) {
   if (!cloudConfigured()) return // local-only build: nobody to be present with
   handlers = h
+  // say goodbye on the way out: a graceful untrack usually flushes before
+  // the socket dies, so a reload doesn't leave a ghost of you in the room
+  // for the server's timeout window
+  window.addEventListener('pagehide', () => {
+    try {
+      channel?.untrack()
+      lobby?.untrack()
+    } catch {
+      /* the socket was already gone */
+    }
+  })
   // the cloud session arrives asynchronously (captcha etc.) — keep trying gently
   const iv = setInterval(() => {
     if (!getSupabase()) return

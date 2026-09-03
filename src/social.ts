@@ -227,6 +227,10 @@ export function sanitizeRoomPlaced(raw: unknown): { room: RoomDoc; placed: Place
       if (variant) item.variant = variant
       const on = str(r.on, 40)
       if (on) item.on = on
+      if (r.wall === 'back' || r.wall === 'left') {
+        item.wall = r.wall
+        item.y = num(r.y, 0.5, 8, 3.4)
+      }
       placed.push(item)
     }
   }

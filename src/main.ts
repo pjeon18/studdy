@@ -877,6 +877,7 @@ setInterval(() => {
 ;(window as any).__studdy = {
   lighting,
   game,
+  store, // the LIVE instance — devtools import() can get a different copy after HMR
   showcase,
   scene,
   step,

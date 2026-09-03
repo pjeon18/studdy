@@ -36,12 +36,12 @@ export interface RoomDoc {
   openings: Opening[]
 }
 
-export type Placement = 'floor' | 'surface'
+export type Placement = 'floor' | 'surface' | 'wall'
 
 export interface CatalogItem {
   id: string
   name: string
-  category: 'seating' | 'tables' | 'counter' | 'decor' | 'rugs' | 'plants' | 'things'
+  category: 'seating' | 'tables' | 'counter' | 'decor' | 'rugs' | 'plants' | 'things' | 'wall'
   /** Price in beans. */
   price: number
   /** Footprint in world units, before rotation (w along x, d along z). */
@@ -69,6 +69,10 @@ export interface PlacedItem {
   rot: 0 | 1 | 2 | 3
   /** uid of the surface item this sits on (for placement 'surface'). */
   on?: string
+  /** Wall décor: which wall it hangs on… */
+  wall?: 'back' | 'left'
+  /** …and how high (world units to the item's center). */
+  y?: number
 }
 
 export interface Package {
@@ -142,6 +146,8 @@ export interface SaveDoc {
   /** Every bean ever earned (spending doesn't reduce it). */
   lifetimeBeans: number
   goals: GoalsState
+  /** Café theme sets the player owns (shop → themes). */
+  themes: string[]
   /** Daily focus streak. One rest day pauses it; longer gaps start over. */
   streak: { count: number; best: number; lastDay: string }
 }
