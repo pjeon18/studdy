@@ -858,3 +858,34 @@ Audited ahead of real accounts; findings fixed:
   guestbook → open café → tour; goals/friends/chat/café-controls/shop/
   directory/settings/room/furnish sheets all inside the viewport (max
   bottom 805 of 812). Desktop re-verified unchanged after the pass.
+
+### Server-authoritative economy (2026-09-03) — Build Plan 2 · T1
+- supabase/phase5.sql (NOT YET RUN — paste it in the SQL editor):
+  sessions table + session_begin/session_beat/session_end RPCs
+  (security definer). Focus xp is granted by the SERVER from witnessed
+  heartbeats: a beat is worth the real wall-clock gap capped at 90s,
+  beats <20s apart earn nothing, one session tops out at 6 verified
+  hours, one rolling day at 16. xp rate matches the client (10/min).
+- Host credit moves server-side: session_end (and session_begin's sweep
+  of sessions left open by closed tabs) writes study_log with VERIFIED
+  minutes and increments cafes.study_minutes. Direct study_log inserts
+  are revoked.
+- Column-scoped grants: profiles.xp and cafes.study_minutes become
+  server-written only (client keeps handle/name/avatar and open/doc).
+- Client (social.ts focusSessionStart/Stop, wired in main.ts onSession):
+  begins a session on sit (passing the real café owner when visiting),
+  beats every 60s, settles on stand. Generation counter guards the
+  quick sit-stand race (an orphaned begin is settled immediately).
+- Compatibility, both directions: pre-migration the RPCs 404 silently
+  and the legacy client xp push still works; post-migration the legacy
+  push and direct study_log inserts are DENIED silently and the RPCs
+  take over. No client redeploy needed around the SQL run.
+- Beans stay client-side by design: private convenience currency, never
+  ranked. The trust boundary is what other people SEE — leaderboard xp
+  and café stars.
+- Verified in the pane (signed-out path): sit → focusSessionStart no-ops
+  cleanly, stand → focusSessionStop no-ops, zero console errors.
+  Signed-in accrual needs the SQL run first — after running it: sit for
+  2+ minutes and watch the directory leaderboard xp rise; a devtools
+  `supa.from('profiles').update({ xp: 999999 })` must come back
+  permission-denied.

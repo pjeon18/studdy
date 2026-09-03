@@ -25,7 +25,17 @@ import { CATALOG } from './items'
 import { needsOnboarding, runOnboarding } from './onboarding'
 import { initCloud, getSupabase, cloudUser } from './cloud'
 import { initPresence, setPlace, updateState, presenceDebug } from './presence'
-import { initSocial, fetchCafeByUser, fetchCafeByHandle, requestFriend, logStudy, giftBean, listFriends } from './social'
+import {
+  initSocial,
+  fetchCafeByUser,
+  fetchCafeByHandle,
+  requestFriend,
+  logStudy,
+  giftBean,
+  listFriends,
+  focusSessionStart,
+  focusSessionStop,
+} from './social'
 import { whereIs } from './presence'
 import { DREAM_CAFES } from './cafes'
 import { toast } from './ui'
@@ -284,6 +294,13 @@ if (isShowcase) {
     onSession: (s) => {
       editor?.setSession(s)
       syncWakeLock(!!s)
+      // server-witnessed focus time: heartbeats grant the leaderboard xp
+      if (s) {
+        const v = game?.getVisiting()
+        focusSessionStart(v?.id.startsWith('user:') ? v.id.slice(5) : null)
+      } else {
+        focusSessionStop()
+      }
       const pos = game?.getPlayerPos()
       updateState({
         ...(s

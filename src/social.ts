@@ -465,6 +465,50 @@ export async function blockUser(userId: string): Promise<boolean> {
   return true
 }
 
+// ---------- verified focus sessions (phase 5: server-authoritative xp) ----------
+// While seated, a heartbeat a minute proves presence to the server, which
+// grants leaderboard xp and host credit from wall-clock-verified time.
+// Pre-phase-5 (or offline) this quietly does nothing and the legacy
+// client-side push below still works.
+
+let liveSession: { id: number; timer: ReturnType<typeof setInterval> } | null = null
+let sessionGen = 0
+
+/** Sat down: open a server-witnessed session (placeUid = a real café owner). */
+export function focusSessionStart(placeUid: string | null) {
+  focusSessionStop()
+  const supa = getSupabase()
+  if (!supa) return
+  const gen = ++sessionGen
+  const p_place = placeUid && UUID.test(placeUid) ? placeUid : null
+  supa.rpc('session_begin', { p_place }).then(({ data, error }) => {
+    if (error || typeof data !== 'number') return // phase-5 fns not there yet — legacy path covers it
+    if (gen !== sessionGen) {
+      // stood up before the server answered: settle the orphan right away
+      supa.rpc('session_end', { p_id: data }).then(() => {})
+      return
+    }
+    const timer = setInterval(() => {
+      getSupabase()
+        ?.rpc('session_beat', { p_id: data })
+        .then(() => {})
+    }, 60_000)
+    liveSession = { id: data, timer }
+  })
+}
+
+/** Stood up: settle the session (the server pays the host from verified time). */
+export function focusSessionStop() {
+  sessionGen++
+  if (!liveSession) return
+  const { id, timer } = liveSession
+  liveSession = null
+  clearInterval(timer)
+  getSupabase()
+    ?.rpc('session_end', { p_id: id })
+    .then(() => {})
+}
+
 // ---------- leaderboard (xp lives on the public profile) ----------
 
 let xpT: ReturnType<typeof setTimeout> | undefined
@@ -474,8 +518,10 @@ function schedulePushXp() {
     const supa = getSupabase()
     const me = cloudUser()
     if (!supa || !me || !myHandle) return
+    // pre-phase-5 compatibility: once the xp column is server-locked this
+    // update is denied and ignored — session_beat grants xp instead
     const { error } = await supa.from('profiles').update({ xp: store.save.xp }).eq('user_id', me.id)
-    if (error) missingSchema(error) // phase-4 column not there yet — fine
+    if (error) missingSchema(error) // column locked or not there yet — fine
   }, 4000)
 }
 
