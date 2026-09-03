@@ -55,7 +55,9 @@ const isShowcase = params.has('showcase')
 
 const stage = document.getElementById('stage')!
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+// low-power: on dual-GPU laptops this keeps the battery-hungry discrete
+// GPU asleep — a cozy idle game should never spin fans
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' })
 // One look — crisp — with ADAPTIVE quality: the renderer supersamples
 // where the GPU can afford it and steps itself down when frames sag, so
 // weaker laptops stay responsive instead of slideshowing. The discovered
@@ -913,9 +915,25 @@ function step(dt: number) {
   lighting.update(dt)
   renderFrame()
 }
+// the idle frame governor: hands off for a moment → 30fps (ambient sway
+// reads the same, the laptop stays cool); any input snaps back to full
+// rate instantly. qualityTick still counts every rAF callback, so the
+// adaptive-quality fps measure stays honest.
+let lastInputAt = 0
+const noteInput = () => (lastInputAt = performance.now())
+for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart'])
+  window.addEventListener(ev, noteInput, { capture: true, passive: true })
+let lastRenderAt = 0
 function frame() {
-  lastFrame = performance.now()
-  qualityTick(lastFrame)
+  const now = performance.now()
+  lastFrame = now
+  qualityTick(now)
+  const idle = now - lastInputAt > 1400
+  if (idle && now - lastRenderAt < 31) {
+    requestAnimationFrame(frame)
+    return
+  }
+  lastRenderAt = now
   step(Math.min(clockT.getDelta(), 0.05))
   requestAnimationFrame(frame)
 }

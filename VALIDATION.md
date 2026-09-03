@@ -1034,3 +1034,20 @@ Audited ahead of real accounts; findings fixed:
   host redecorated — walls, floor, furniture rebuild under you without
   re-entering; if your seat left with the furniture you stand up kindly
   (verified in the pane: 33→16 pieces + room shrink applied live).
+
+### Day light cap + power diet (2026-09-03)
+- Room-light slider: DAY now tops out at 1.7× (was 2.1×) — full daylight
+  plus full pendants was too much. Dusk/night keep the full 2.1× range,
+  the default middle (1.05×) is untouched, and the cap lerps smoothly
+  across mode transitions. Verified: day max pendant 3.97 (was 4.90),
+  dusk ratio still 2.0×.
+- Heat/battery (field report: both laptops running hot): a cozy idle
+  game was rendering flat-out. Two zero-gameplay fixes —
+  (1) powerPreference 'low-power' keeps dual-GPU laptops on the
+  efficient integrated GPU; (2) an idle frame governor renders at 30fps
+  once hands are off for 1.4s and snaps to full rate on any input
+  (pointer, wheel, key, touch). Ambient sway/steam at 30fps reads the
+  same in a pixel diorama; interactions stay 60fps-crisp. qualityTick
+  counts rAF callbacks (not renders), so the adaptive-quality measure
+  stays honest under the governor. Verified: game animates while idle,
+  no errors.
