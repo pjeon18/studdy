@@ -341,38 +341,24 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     })
   }
 
-  // structural changes cost beans, and each one costs more than the last
-  // (width/depth escalate separately at 10, 20, 30…; windows at 15, 30, 45…)
-  const structPrice = (key: string, base: number) => base * ((store.save.goals.counters[key] ?? 0) + 1)
-  /** Run a room mutation; charge only if it actually changed something. */
-  const paidChange = (key: string, base: number, snapshot: () => number, mutate: () => void) => {
-    const cost = structPrice(key, base)
-    if (store.save.beans < cost) {
-      toast(`that change costs ${cost} ◍ — keep studying ♪`)
-      return
-    }
-    const before = snapshot()
-    mutate()
-    if (snapshot() === before) return // hit a limit — no charge
-    store.spendBeans(cost)
-    store.bumpCounter(key)
-    game.float(`-${cost} beans`, 'spend')
-    sfx.coin()
-  }
+  // Structural edits are FREE for now. The escalating costs (width/depth
+  // 10,20,30…; windows 15,30,45…) were rolled back 2026-09-03: charging
+  // for room changes only after a free start read as a bait-and-switch —
+  // structure pricing waits for the comprehensive economy pass.
 
   roomWin.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest('button')
     if (!btn) return
     const a = (btn as HTMLElement).dataset.a
     const { w, d } = store.save.room
-    if (a === 'w-') paidChange('costW', 10, () => store.save.room.w, () => store.setRoomSize(w - 2, d))
-    else if (a === 'w+') paidChange('costW', 10, () => store.save.room.w, () => store.setRoomSize(w + 2, d))
-    else if (a === 'd-') paidChange('costD', 10, () => store.save.room.d, () => store.setRoomSize(w, d - 2))
-    else if (a === 'd+') paidChange('costD', 10, () => store.save.room.d, () => store.setRoomSize(w, d + 2))
-    else if (a === 'wb-') paidChange('costWin', 15, () => store.windowCount('back'), () => store.setWindowCount('back', store.windowCount('back') - 1))
-    else if (a === 'wb+') paidChange('costWin', 15, () => store.windowCount('back'), () => store.setWindowCount('back', store.windowCount('back') + 1))
-    else if (a === 'wl-') paidChange('costWin', 15, () => store.windowCount('left'), () => store.setWindowCount('left', store.windowCount('left') - 1))
-    else if (a === 'wl+') paidChange('costWin', 15, () => store.windowCount('left'), () => store.setWindowCount('left', store.windowCount('left') + 1))
+    if (a === 'w-') store.setRoomSize(w - 2, d)
+    else if (a === 'w+') store.setRoomSize(w + 2, d)
+    else if (a === 'd-') store.setRoomSize(w, d - 2)
+    else if (a === 'd+') store.setRoomSize(w, d + 2)
+    else if (a === 'wb-') store.setWindowCount('back', store.windowCount('back') - 1)
+    else if (a === 'wb+') store.setWindowCount('back', store.windowCount('back') + 1)
+    else if (a === 'wl-') store.setWindowCount('left', store.windowCount('left') - 1)
+    else if (a === 'wl+') store.setWindowCount('left', store.windowCount('left') + 1)
     else if (a === 'door-') store.moveDoor(-1)
     else if (a === 'door+') store.moveDoor(1)
     else if (a === 'doorwall') store.doorWall(store.save.room.openings.find((o) => o.kind === 'door')?.wall === 'left' ? 'back' : 'left')
