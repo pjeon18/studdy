@@ -689,9 +689,9 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   const hudTime = hudWin.querySelector('.hud-time') as HTMLElement
   const hudNapkin = hudWin.querySelector('.hud-napkin') as HTMLInputElement
   const hudHp = hudWin.querySelector('.hud-hp') as HTMLButtonElement
-  let hudStart = 0
   const fmtHud = () => {
-    const m = Math.max(0, Math.floor((Date.now() - hudStart) / 60000))
+    // verified focused time — the same clock the payout uses
+    const m = Math.max(0, Math.floor(game.getFocusSec() / 60))
     hudTime.textContent = m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`
   }
   setInterval(() => {
@@ -1067,7 +1067,6 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     setSession(s) {
       hudWin.classList.toggle('hidden', !s)
       if (s) {
-        hudStart = s.startedAt
         hudNapkin.value = s.napkin
         hudHp.classList.toggle('active', s.headphones)
         const rate = store.focusRate()

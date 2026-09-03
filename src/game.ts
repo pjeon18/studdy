@@ -800,10 +800,44 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     return nearestFreeTile(seat.x, seat.z) ?? doorLanding()
   }
 
+  // ---- the verified focus clock ----
+  // Beans mirror the server's xp accounting: the clock only accrues while
+  // the app is actually awake. Each tick credits the real gap since the
+  // last one, capped at 90s — so a closed laptop earns one capped beat on
+  // wake instead of hours of sleep. Backgrounded-but-running tabs still
+  // earn in full (throttled ticks arrive ~1/min, under the cap).
+  let focusSec = 0
+  let focusLast = 0
+  const FOCUS_TICK_CAP = 90 // seconds one gap can be worth
+  const FOCUS_CAP = 6 * 3600 // one sitting tops out at 6 verified hours
+  const DOZE_MS = 30 * 60_000 // asleep this long = stood up kindly
+  setInterval(() => {
+    if (!session) return
+    const gap = (Date.now() - focusLast) / 1000
+    focusSec = Math.min(focusSec + Math.min(gap, FOCUS_TICK_CAP), FOCUS_CAP)
+    focusLast = Date.now()
+  }, 20_000)
+  /** Verified focused seconds this sitting (what the payout will use). */
+  function getFocusSec(): number {
+    if (!session) return 0
+    const tail = Math.min((Date.now() - focusLast) / 1000, FOCUS_TICK_CAP)
+    return Math.min(focusSec + tail, FOCUS_CAP)
+  }
+  // waking from a long sleep while still "seated": tuck the chair in
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !session) return
+    if (Date.now() - focusLast > DOZE_MS) {
+      toast('you drifted off — we tucked your chair in ♪')
+      leaveSeat()
+    }
+  })
+
   function sit(seat: SeatRef) {
     if (session) leaveSeat()
     removeStanding()
     spawnSitter(seat)
+    focusSec = 0
+    focusLast = Date.now()
     session = {
       seatKey: seat.key,
       cafeName: visiting ? visiting.name : 'your café',
@@ -827,7 +861,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
   function leaveSeat() {
     if (!session) return
     const seat = seatRefs().find((s) => s.key === session!.seatKey)
-    const minutes = Math.floor((Date.now() - session.startedAt) / 60000)
+    const minutes = Math.floor(getFocusSec() / 60) // verified time, not wall time
     removeOccupant(session.seatKey)
     session = null
     cb.onSession(null)
@@ -872,7 +906,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       working: session?.napkin || '…',
       headphones: session?.headphones ?? true,
       streak: store.save.streak.count > 0 ? `${store.save.streak.count} day${store.save.streak.count > 1 ? 's' : ''} ★` : 'starts today ♪',
-      focusedSince: session?.startedAt ?? standing?.since ?? Date.now(),
+      focusedSince: session ? Date.now() - getFocusSec() * 1000 : standing?.since ?? Date.now(),
       hair: store.save.avatar.hair,
       sweater: store.save.avatar.sweater,
       level: store.levelInfo().level,
@@ -1375,6 +1409,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     visit,
     getVisiting: () => visiting,
     leaveSeat,
+    getFocusSec,
     getSession: () => session,
     setRemotePatrons,
     /** Begin carrying the standing player (returns true if the grab landed). */
