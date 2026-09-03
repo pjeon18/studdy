@@ -19,7 +19,7 @@ import { Lighting } from './lighting'
 import { buildUI, heartBurst } from './ui'
 import { createGame, type Game } from './game'
 import { buildEditor, type Editor } from './editor'
-import { unlock, sfx } from './sounds'
+import { unlock, sfx, duckMusic, setStation, getStation } from './sounds'
 import * as store from './store'
 import { CATALOG } from './items'
 import { needsOnboarding, runOnboarding } from './onboarding'
@@ -390,6 +390,7 @@ if (game) {
 
 // ---------- speech bubbles (chat lines float over heads, then fade) ----------
 function showBubble(anchor: () => THREE.Vector3 | null, text: string, ms = 4500) {
+  duckMusic() // dip the radio for a breath so the words land
   const el = document.createElement('div')
   el.className = 'chat-bubble'
   el.textContent = text
@@ -419,7 +420,12 @@ if (game) buildGoals(document.getElementById('ui')!)
 
 // accounts + cloud saves (no-op unless Supabase env vars are set)
 if (game) {
-  initCloud()
+  initCloud().then(() => {
+    // home radio schedule keys on the real uid once the session is up,
+    // so visitors (who know this café as user:<uid>) hear the same station
+    const u = cloudUser()
+    if (u && !game!.getVisiting()) setStation(getStation(), 'user:' + u.id)
+  })
   // realtime presence: real people in the room, live chat, directory counts
   initPresence({
     onPatrons: (patrons) => game!.setRemotePatrons(patrons),

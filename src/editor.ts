@@ -9,7 +9,7 @@ import { itemThumb } from './thumbs'
 import { DREAM_CAFES, FRIENDS, type DreamCafe, type FriendState } from './cafes'
 import { toast, drawPortrait, collapsible, toggleRightWindow, esc } from './ui'
 import { beanImg } from './pixelui'
-import { sfx, setStation, STATIONS, isEnabled, setEnabled, setMusicVolume, getMusicVolume, type Station } from './sounds'
+import { sfx, setStation, STATIONS, isEnabled, setEnabled, setMusicVolume, getMusicVolume, nowPlaying, type Station } from './sounds'
 import { capacityOfPlaced, type Game, type Session } from './game'
 import { cloudConfigured, cloudUser, linkEmail, signOut, isDev } from './cloud'
 import { fetchCafeByUser, listOpenCafes, listFriends, acceptRequest, declineRequest, getMyHandle, shareUrl, fetchLeaders, starsFor } from './social'
@@ -716,6 +716,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     <div class="y2k-body info-body">
       <div class="ed-row"><span>status</span><button class="glossy-btn ed-mini info-open"></button></div>
       <div class="ed-row"><span>music</span><span class="ed-ctrl info-music"></span></div>
+      <p class="info-now-playing"></p>
       <div class="ed-row info-gb-row"><span>guestbook</span><button class="glossy-btn ed-mini info-gb"></button></div>
       <div class="ed-row"><span>sprints</span><b class="info-rules-ro hidden"></b></div>
       <input class="px-input info-rules" placeholder="house rules…" maxlength="48" />
@@ -747,6 +748,19 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
 
   const homeName = () => (store.save.info.name ? `${store.save.info.name}'s café` : 'your café')
 
+  // the radio's shared schedule is keyed by whose café you're in
+  const homeSeed = () => 'user:' + (cloudUser()?.id ?? 'local')
+
+  const npEl = infoWin.querySelector('.info-now-playing') as HTMLElement
+  function refreshNowPlaying() {
+    const t = nowPlaying()
+    npEl.textContent = t ? `♪ on air — ${t}` : ''
+    npEl.classList.toggle('hidden', !t)
+  }
+  setInterval(() => {
+    if (!infoWin.classList.contains('hidden')) refreshNowPlaying()
+  }, 8000)
+
   function refreshInfo() {
     const away = !!visitingCafe
     ;(infoWin.querySelector('.tb-title') as HTMLElement).textContent = away ? visitingCafe!.name : homeName()
@@ -776,6 +790,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
         musicEl.appendChild(b)
       }
     }
+    refreshNowPlaying()
     // guestbook toggle (home only)
     ;(infoWin.querySelector('.info-gb-row') as HTMLElement).classList.toggle('hidden', away)
     infoGb.textContent = store.save.info.guestbook ? 'on ♪' : 'off'
@@ -803,7 +818,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
   }
   refreshBrand()
   store.on('info', refreshBrand)
-  setStation(store.save.info.music as Station) // home station from the save
+  setStation(store.save.info.music as Station, homeSeed()) // home station from the save
 
   // ---------- friends tab (side) ----------
   const friendsTab = document.createElement('button')
@@ -1045,8 +1060,8 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
       barBtn('home').classList.toggle('hidden', !away)
       showLeft(null)
       refreshBrand()
-      // the café you're in sets the music
-      setStation((cafe ? cafe.music : store.save.info.music) as Station)
+      // the café you're in sets the music (and its radio schedule)
+      setStation((cafe ? cafe.music : store.save.info.music) as Station, cafe ? cafe.id : homeSeed())
       if (!away) toast('welcome home ♪')
     },
     setSession(s) {

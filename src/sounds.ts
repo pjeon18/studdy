@@ -160,14 +160,17 @@ export const sfx = {
 }
 
 // ====================================================================
-// Café music: a per-café "radio station" the owner picks. Prototype
-// backing is generative ambience (pads + dusty crackle + soft beat) —
-// the production path is curated lofi files / bring-your-own-Spotify.
+// Café music: a per-café "radio station" the owner picks. 'lofi' is a
+// real radio — six curated CC tracks (Pixabay content license, credits
+// in README) on a deterministic shared schedule: the café's seed
+// shuffles the playlist and the wall clock picks the track AND the
+// position, so everyone in the room hears the same thing at the same
+// moment, like the communal sprint clock. 'rain' stays generative.
 // ====================================================================
 
 export type Station = 'lofi' | 'rain' | 'off'
 export const STATIONS: { id: Station; label: string }[] = [
-  { id: 'lofi', label: 'lofi beats' },
+  { id: 'lofi', label: 'lofi radio' },
   { id: 'rain', label: 'rainy piano' },
   { id: 'off', label: 'quiet' },
 ]
@@ -203,41 +206,15 @@ function ensureMusicGraph() {
 }
 
 function scheduleAhead() {
-  if (!ctx || station === 'off' || !enabled) {
+  if (!ctx || station !== 'rain' || !enabled) {
     if (ctx) nextBar = Math.max(nextBar, ctx.currentTime + 0.1)
     return
   }
   while (nextBar < ctx.currentTime + 1.6) {
-    if (station === 'lofi') scheduleLofiBar(nextBar, barIndex)
-    else scheduleRainBar(nextBar, barIndex)
+    scheduleRainBar(nextBar, barIndex)
     nextBar += BAR
     barIndex++
   }
-}
-
-function scheduleLofiBar(t0: number, bar: number) {
-  const dest = musicLP!
-  const beat = BAR / 4
-  const chord = CHORDS[bar % 4]
-  // pad: slow-attack detuned triangles
-  for (const f of chord) {
-    tone(f, t0, BAR + 0.5, 0.028, 'triangle', undefined, dest)
-    tone(f * 1.004, t0 + 0.03, BAR + 0.4, 0.016, 'triangle', undefined, dest)
-  }
-  tone(chord[0] / 2, t0, BAR, 0.05, 'sine', undefined, dest) // bass root
-  // dusty beat, mixed low
-  for (const b of [0, 2]) tone(115, t0 + b * beat, 0.1, 0.1, 'sine', 42, dest)
-  for (const b of [1, 3]) burst(t0 + b * beat, 0.07, 0.03, 1700, 0.9, dest)
-  for (const b of [0.5, 1.5, 2.5, 3.5]) burst(t0 + b * beat, 0.02, 0.014, 6200, 1.4, dest)
-  // an occasional mellow pluck, one octave up
-  if ((bar * 7) % 3 !== 0) {
-    const pool = chord.map((f) => f * 2)
-    const n1 = pool[(bar * 5) % 4]
-    tone(n1, t0 + ((bar % 3) + 1) * beat, 0.6, 0.045, 'sine', undefined, dest)
-    if (bar % 2 === 0) tone(pool[(bar * 3 + 1) % 4], t0 + 3.5 * beat, 0.5, 0.035, 'sine', undefined, dest)
-  }
-  // vinyl crackle
-  for (let i = 0; i < 5; i++) burst(t0 + (((bar * 13 + i * 29) % 32) / 32) * BAR, 0.008, 0.012, 4200, 2, dest)
 }
 
 function scheduleRainBar(t0: number, bar: number) {
@@ -252,16 +229,136 @@ function scheduleRainBar(t0: number, bar: number) {
   }
 }
 
+// ---------- the lofi radio ----------
+
+interface RadioTrack {
+  file: string
+  dur: number
+  title: string
+}
+const TRACKS: RadioTrack[] = [
+  { file: 'lofi-1.m4a', dur: 126.2, title: 'first draft' },
+  { file: 'lofi-2.m4a', dur: 131.3, title: 'window seat' },
+  { file: 'lofi-3.m4a', dur: 147.2, title: 'warm static' },
+  { file: 'lofi-4.m4a', dur: 128.0, title: 'margin notes' },
+  { file: 'lofi-5.m4a', dur: 143.4, title: 'slow steam' },
+  { file: 'lofi-6.m4a', dur: 147.1, title: 'midnight desk' },
+]
+const TRACK_GAP = 3 // a breath of quiet between tracks
+
+let radioSeed = 0
+let radioEl: HTMLAudioElement | null = null
+let radioTrack = -1
+let radioT: ReturnType<typeof setInterval> | undefined
+
+function hashSeed(s: string): number {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0
+  return h
+}
+
+/** This café's playlist order (stable shuffle per seed). */
+function radioOrder(seed: number): number[] {
+  const order = TRACKS.map((_, i) => i)
+  let x = seed || 1
+  for (let i = order.length - 1; i > 0; i--) {
+    x = (x * 1664525 + 1013904223) >>> 0
+    const j = x % (i + 1)
+    ;[order[i], order[j]] = [order[j], order[i]]
+  }
+  return order
+}
+
+/** Where this station is right now: track index + seconds into it. */
+function radioNow(): { idx: number; offset: number } {
+  const order = radioOrder(radioSeed)
+  const cycle = order.reduce((s, i) => s + TRACKS[i].dur + TRACK_GAP, 0)
+  let pos = (Date.now() / 1000 + (radioSeed % 1009)) % cycle
+  for (const i of order) {
+    if (pos < TRACKS[i].dur + TRACK_GAP) return { idx: i, offset: pos }
+    pos -= TRACKS[i].dur + TRACK_GAP
+  }
+  return { idx: order[0], offset: 0 }
+}
+
+function ensureRadio() {
+  if (!ctx || !master || radioEl) return
+  ensureMusicGraph()
+  radioEl = new Audio()
+  radioEl.preload = 'auto'
+  // through the shared music chain: same warmth, volume, and ducking
+  ctx.createMediaElementSource(radioEl).connect(musicLP!)
+  radioT = setInterval(syncRadio, 4000)
+}
+
+/** Keep the audio element on the station's schedule (track + position). */
+function syncRadio() {
+  if (!ctx || !radioEl) return
+  if (station !== 'lofi' || !enabled) {
+    if (!radioEl.paused) radioEl.pause()
+    radioTrack = -1
+    return
+  }
+  const { idx, offset } = radioNow()
+  if (offset >= TRACKS[idx].dur - 0.1) {
+    // the quiet gap between tracks
+    if (!radioEl.paused) radioEl.pause()
+    radioTrack = -1
+    return
+  }
+  if (radioTrack !== idx) {
+    radioTrack = idx
+    radioEl.src = import.meta.env.BASE_URL + 'music/' + TRACKS[idx].file
+    radioEl.onloadedmetadata = () => {
+      const at = radioNow() // recompute: loading took real time
+      if (at.idx !== idx || !radioEl) return
+      radioEl.currentTime = Math.min(at.offset, TRACKS[idx].dur - 0.1)
+      radioEl.play().catch(() => {
+        radioTrack = -1 // autoplay blocked — retry on the next sync
+      })
+    }
+  } else {
+    if (Math.abs(radioEl.currentTime - offset) > 3) radioEl.currentTime = offset
+    if (radioEl.paused)
+      radioEl.play().catch(() => {
+        radioTrack = -1
+      })
+  }
+}
+
+/** The track on air at this café right now (null unless on lofi). */
+export function nowPlaying(): string | null {
+  if (station !== 'lofi') return null
+  const { idx, offset } = radioNow()
+  return offset >= TRACKS[idx].dur - 0.1 ? null : TRACKS[idx].title
+}
+
+/** A chat bubble popped: dip the music for a breath so the words land. */
+export function duckMusic() {
+  if (!ctx || !musicGain || station === 'off') return
+  const g = musicGain.gain
+  const t = ctx.currentTime
+  g.cancelScheduledValues(t)
+  g.setTargetAtTime(musicVol * 0.35, t, 0.08)
+  g.setTargetAtTime(musicVol, t + 1.3, 0.4)
+}
+
 function applyStation() {
   if (!ctx || !rainGain) return
   ensureMusicGraph()
+  ensureRadio()
   const rainTarget = station === 'rain' ? 0.05 : 0.018
   rainGain.gain.linearRampToValueAtTime(rainTarget, ctx.currentTime + 1.2)
+  syncRadio()
 }
 
-/** The café you're in sets the station (owner-configured). */
-export function setStation(s: Station) {
+/** The café you're in sets the station; its seed keys the radio schedule. */
+export function setStation(s: Station, seed?: string) {
   station = s
+  if (seed !== undefined) {
+    radioSeed = hashSeed(seed)
+    radioTrack = -1 // new schedule: resync on the next tick
+  }
   applyStation()
 }
 

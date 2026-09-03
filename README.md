@@ -85,3 +85,15 @@ Without the env vars the cloud layer silently stays off — nothing breaks.
 - `docs/GAME_SPEC.md` — the design: scenarios, principles, aesthetic bible.
 - `docs/BUILD_PLAN.md` — the tiered build plan this was built from.
 - `VALIDATION.md` — every tier's acceptance criteria + the polish rounds.
+
+## Music credits
+The lofi radio tracks are royalty-free music from [Pixabay](https://pixabay.com/music/)
+(Pixabay Content License — free for use in apps and games, no attribution required).
+Source files, in playlist order (`public/music/lofi-1..6.m4a`, re-encoded to 96kbps AAC):
+- https://cdn.pixabay.com/audio/2026/07/29/audio_56a556b301.mp3
+- https://cdn.pixabay.com/audio/2026/07/15/audio_6b51a3af77.mp3
+- https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3
+- https://cdn.pixabay.com/audio/2026/07/08/audio_54cc10fde5.mp3
+- https://cdn.pixabay.com/audio/2026/07/15/audio_efe733ed10.mp3
+- https://cdn.pixabay.com/audio/2023/07/30/audio_e0908e8569.mp3
+Rain and all UI sounds remain synthesized (WebAudio, no assets).

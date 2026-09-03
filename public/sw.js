@@ -17,6 +17,23 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url)
   // never intercept the API / realtime traffic
   if (url.origin !== location.origin || e.request.method !== 'GET') return
+  // music tracks are immutable: cache-first so the radio never re-downloads
+  if (url.pathname.includes('/music/')) {
+    e.respondWith(
+      caches.match(e.request).then(
+        (hit) =>
+          hit ??
+          fetch(e.request).then((res) => {
+            if (res.ok) {
+              const copy = res.clone()
+              caches.open(CACHE).then((c) => c.put(e.request, copy))
+            }
+            return res
+          })
+      )
+    )
+    return
+  }
   e.respondWith(
     fetch(e.request)
       .then((res) => {
