@@ -7,7 +7,7 @@ import { PAL, VOX, OUTLINE_LAYER } from './build'
 export interface PersonOpts {
   hair: string
   sweater: string
-  sweaterDeep: string
+  sweaterDeep?: string
   skin?: string
   hairStyle?: 'short' | 'long'
   glasses?: boolean
@@ -104,50 +104,13 @@ export interface Person {
   pose: Pose
 }
 
-/** Chibi person (~2 world units), local voxels, facing +z.
- *  'sit': origin at the seat top center. 'stand': origin at the floor. */
-export function buildPerson(opts: PersonOpts, pose: Pose = 'sit'): Person {
-  const group = new THREE.Group()
-  const meshes: THREE.Object3D[] = []
-  const standing = pose === 'stand'
-  const torsoY = standing ? 10 : 0 // legs lift the torso when standing
-
-  const body = new VoxelGrid()
-  if (standing) {
-    // little legs + shoes
-    body.fill(-5, 0, -2, -1, 10, 1, PAL.denim)
-    body.fill(0, 0, -2, 4, 10, 1, PAL.denim)
-    body.fill(-5, 0, 1, -1, 1, 4, '#FFFFFF')
-    body.fill(0, 0, 1, 4, 1, 4, '#FFFFFF')
-  } else {
-    // lap / thighs / shoes — compact
-    body.fill(-5, -3, -3, 4, 0, 6, PAL.denim)
-    body.fill(-5, -5, 5, -3, -3, 8, '#FFFFFF')
-    body.fill(2, -5, 5, 4, -3, 8, '#FFFFFF')
-  }
-  // small chibi torso: the head should dominate
-  body.roundedBox(-6, torsoY, -4, 5, torsoY + 8, 3, opts.sweater)
-  body.fill(-6, torsoY + 8, -4, 5, torsoY + 9, 3, opts.sweater)
-  body.carve(-6, torsoY + 8, -4, -6, torsoY + 9, 3)
-  body.carve(5, torsoY + 8, -4, 5, torsoY + 9, 3)
-  body.carve(-5, torsoY + 9, -4, -5, torsoY + 9, 3)
-  body.carve(4, torsoY + 9, -4, 4, torsoY + 9, 3)
-  for (let x = -5; x <= 4; x++) {
-    body.set(x, torsoY, 3, opts.sweaterDeep)
-    body.set(x, torsoY + 1, 3, opts.sweaterDeep)
-  }
-  const bodyMesh = body.build()
-  bodyMesh.scale.setScalar(VOX)
-  bodyMesh.position.set(VOX / 2, 0, 0)
-  group.add(bodyMesh)
-  meshes.push(bodyMesh)
-
+/** The chibi head voxels — 17 x 13 x 16, face at z=15, hat riding the same
+ *  grid. Shared by the 3D person mesh AND the 2D sprite projection so the
+ *  two can never drift apart. */
+export function buildHeadGrid(opts: PersonOpts): VoxelGrid {
   const skin = opts.skin ?? PAL.skin
   // the crown highlight follows the hair color (a fixed brown looks like a bald spot on dyed hair)
   const hairHi = `#${new THREE.Color(opts.hair).lerp(new THREE.Color('#FFFFFF'), 0.22).getHexString()}`
-
-  // head 17 x 13 x 16 — compact chibi: short crown, low bangs, side locks
-  const headGroup = new THREE.Group()
   const hd = new VoxelGrid()
   hd.roundedBox(0, 0, 0, 16, 12, 15, skin)
   hd.roundedBox(0, 9, 0, 16, 12, 15, opts.hair)
@@ -177,6 +140,51 @@ export function buildPerson(opts: PersonOpts, pose: Pose = 'sit'): Person {
   // the hat rides the same grid so it turns and bobs with the head
   const hat = HATS.find((h) => h.id === opts.hat)
   if (hat) hat.draw(hd)
+  return hd
+}
+
+/** Chibi person (~2 world units), local voxels, facing +z.
+ *  'sit': origin at the seat top center. 'stand': origin at the floor. */
+export function buildPerson(opts: PersonOpts, pose: Pose = 'sit'): Person {
+  const group = new THREE.Group()
+  const meshes: THREE.Object3D[] = []
+  const standing = pose === 'stand'
+  const torsoY = standing ? 10 : 0 // legs lift the torso when standing
+
+  const body = new VoxelGrid()
+  if (standing) {
+    // little legs + shoes
+    body.fill(-5, 0, -2, -1, 10, 1, PAL.denim)
+    body.fill(0, 0, -2, 4, 10, 1, PAL.denim)
+    body.fill(-5, 0, 1, -1, 1, 4, '#FFFFFF')
+    body.fill(0, 0, 1, 4, 1, 4, '#FFFFFF')
+  } else {
+    // lap / thighs / shoes — compact
+    body.fill(-5, -3, -3, 4, 0, 6, PAL.denim)
+    body.fill(-5, -5, 5, -3, -3, 8, '#FFFFFF')
+    body.fill(2, -5, 5, 4, -3, 8, '#FFFFFF')
+  }
+  // small chibi torso: the head should dominate
+  body.roundedBox(-6, torsoY, -4, 5, torsoY + 8, 3, opts.sweater)
+  body.fill(-6, torsoY + 8, -4, 5, torsoY + 9, 3, opts.sweater)
+  body.carve(-6, torsoY + 8, -4, -6, torsoY + 9, 3)
+  body.carve(5, torsoY + 8, -4, 5, torsoY + 9, 3)
+  body.carve(-5, torsoY + 9, -4, -5, torsoY + 9, 3)
+  body.carve(4, torsoY + 9, -4, 4, torsoY + 9, 3)
+  const deepTrim = opts.sweaterDeep ?? shadeHex(opts.sweater, 0.78)
+  for (let x = -5; x <= 4; x++) {
+    body.set(x, torsoY, 3, deepTrim)
+    body.set(x, torsoY + 1, 3, deepTrim)
+  }
+  const bodyMesh = body.build()
+  bodyMesh.scale.setScalar(VOX)
+  bodyMesh.position.set(VOX / 2, 0, 0)
+  group.add(bodyMesh)
+  meshes.push(bodyMesh)
+
+  const skin = opts.skin ?? PAL.skin
+  const headGroup = new THREE.Group()
+  const hd = buildHeadGrid(opts)
   const headMesh = hd.build()
   headMesh.scale.setScalar(VOX)
   headMesh.position.set(-17 * VOX / 2, 0, -16 * VOX / 2)
@@ -264,6 +272,112 @@ export function makeAnimator(p: Person, phase = 0, speed = 4): (dt: number, t: n
     const b = blinkT < 0.12 ? 0.1 : 1
     p.eyeL.scale.y = b
     p.eyeR.scale.y = b
+  }
+}
+
+// ---------- the 2D sprite: a faithful front view of the same voxels ----------
+
+function shadeHex(hex: string, f: number): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.min(255, Math.round(((n >> 16) & 255) * f))
+  const g = Math.min(255, Math.round(((n >> 8) & 255) * f))
+  const b = Math.min(255, Math.round((n & 255) * f))
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
+}
+
+export interface BustOpts extends Omit<PersonOpts, 'sweaterDeep'> {
+  sweaterDeep?: string
+  glasses?: boolean
+  /** 'closed' paints sleepy line-eyes (used for the blink frames). */
+  eyes?: 'open' | 'closed'
+  /** Fill color behind the sprite; omit for transparent. */
+  bg?: string
+}
+
+/** Paints a front-view pixel bust onto the canvas, projected from the SAME
+ *  voxel head the 3D person is built from — hat, hair style, blush and all.
+ *  Integer pixel scale, 1px ink outline: reads like a sticker of yourself. */
+export function drawBust(cv: HTMLCanvasElement, opts: BustOpts) {
+  const g = cv.getContext('2d')!
+  g.clearRect(0, 0, cv.width, cv.height)
+  if (opts.bg) {
+    g.fillStyle = opts.bg
+    g.fillRect(0, 0, cv.width, cv.height)
+  }
+
+  // front projection of the head grid: nearest-to-camera color per (x, y)
+  const hd = buildHeadGrid(opts)
+  const px = new Map<number, { color: string; z: number }>()
+  let yMin = 0
+  let yMax = 0
+  let zMin = 99
+  let zMax = -99
+  const key = (x: number, y: number) => x * 4096 + (y + 1024)
+  for (const [x, y, z, color] of hd.entries()) {
+    const k = key(x, y)
+    const cur = px.get(k)
+    if (!cur || z > cur.z) px.set(k, { color, z })
+    if (y < yMin) yMin = y
+    if (y > yMax) yMax = y
+    if (z < zMin) zMin = z
+    if (z > zMax) zMax = z
+  }
+
+  // shoulders under the chin (rows -8..-1), centered on the head
+  const deep = opts.sweaterDeep || shadeHex(opts.sweater, 0.78)
+  const torso = new Map<number, string>()
+  for (let y = -8; y <= -1; y++)
+    for (let x = 3; x <= 14; x++) {
+      if (y === -1 && (x === 3 || x === 14)) continue // rounded shoulders
+      torso.set(key(x, y), y <= -7 ? deep : opts.sweater)
+    }
+  const botY = Math.min(yMin, -8)
+
+  // integer pixel scale, centered, with 1px of outline headroom
+  const W = 17 + 2
+  const H = yMax - botY + 1 + 2
+  const s = Math.max(1, Math.floor(Math.min(cv.width / W, cv.height / H)))
+  const ox = Math.floor((cv.width - 17 * s) / 2)
+  const oy = Math.floor((cv.height - (yMax - botY + 1) * s) / 2)
+  const put = (x: number, y: number, color: string) => {
+    g.fillStyle = color
+    g.fillRect(ox + x * s, oy + (yMax - y) * s, s, s)
+  }
+  const filled = (x: number, y: number) => torso.has(key(x, y)) || px.has(key(x, y))
+
+  // ink outline first, then the pixels over it
+  g.fillStyle = '#4A3226'
+  for (let y = botY; y <= yMax; y++)
+    for (let x = 0; x <= 16; x++) {
+      if (filled(x, y)) continue
+      if (filled(x - 1, y) || filled(x + 1, y) || filled(x, y - 1) || filled(x, y + 1))
+        g.fillRect(ox + x * s, oy + (yMax - y) * s, s, s)
+    }
+  for (let y = botY; y <= yMax; y++)
+    for (let x = 0; x <= 16; x++) {
+      const head = px.get(key(x, y))
+      const body = torso.get(key(x, y))
+      // torso covers the long-hair curtain behind it; front strands sit outside it
+      const c = body && (!head || head.z < 10) ? body : head ? shadeHex(head.color, 0.84 + 0.16 * ((head.z - zMin) / Math.max(1, zMax - zMin))) : null
+      if (c) put(x, y, c)
+    }
+
+  // eyes + glasses are meshes in 3D, so they're painted here by hand
+  g.fillStyle = '#2B1B12'
+  if (opts.eyes === 'closed') {
+    for (const ex of [3, 11]) g.fillRect(ox + ex * s, oy + (yMax - 4) * s, 3 * s, s)
+  } else {
+    for (const ex of [4, 12]) g.fillRect(ox + ex * s, oy + (yMax - 5) * s, s, 3 * s)
+  }
+  if (opts.glasses) {
+    g.fillStyle = '#4A3A30'
+    for (const rx of [2, 10]) {
+      g.fillRect(ox + rx * s, oy + (yMax - 6) * s, 5 * s, s)
+      g.fillRect(ox + rx * s, oy + (yMax - 2) * s, 5 * s, s)
+      g.fillRect(ox + rx * s, oy + (yMax - 6) * s, s, 5 * s)
+      g.fillRect(ox + (rx + 4) * s, oy + (yMax - 6) * s, s, 5 * s)
+    }
+    g.fillRect(ox + 7 * s, oy + (yMax - 5) * s, 3 * s, s)
   }
 }
 

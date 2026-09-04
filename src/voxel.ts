@@ -116,6 +116,17 @@ export class VoxelGrid {
     return this.cells.has(keyOf(x, y, z))
   }
 
+  /** Iterate cells as [x, y, z, color] — lets the 2D sprite painter project
+   *  the exact same voxels the 3D mesh is built from. */
+  *entries(): IterableIterator<[number, number, number, string]> {
+    for (const [key, hex] of this.cells) {
+      const x = (key % SY) - OFF
+      const y = (Math.floor(key / SY) % 1024) - OFF
+      const z = Math.floor(key / SZ) - OFF
+      yield [x, y, z, hex]
+    }
+  }
+
   build(opts: { jitter?: number; ao?: boolean; noBottom?: boolean; material?: THREE.Material } = {}): THREE.Mesh {
     const jitter = opts.jitter ?? 0.014
     const useAO = opts.ao ?? true

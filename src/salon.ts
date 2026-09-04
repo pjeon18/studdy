@@ -5,7 +5,8 @@
 import * as store from './store'
 import { SEAT_COLORS } from './items'
 import { HATS, CHARMS } from './people'
-import { drawPortrait, toast } from './ui'
+import { toast } from './ui'
+import { drawBust } from './people'
 import { sfx } from './sounds'
 
 export const SKIN_TONES = ['#FFDCBD', '#F3C79F', '#DFA878', '#B07A4C', '#8A5A34']
@@ -27,7 +28,10 @@ export function openSalon(ui: HTMLElement, kind: 'barber' | 'boutique' | 'all') 
   win.innerHTML = `
     <div class="y2k-titlebar"><span class="tb-dots"><i></i><i></i></span><span class="tb-title">${title}</span><button class="tb-close">×</button></div>
     <div class="y2k-body salon-body">
-      <canvas class="salon-preview" width="120" height="120"></canvas>
+      <div class="salon-fig">
+        <canvas class="salon-preview" width="160" height="208"></canvas>
+        <div class="salon-name"></div>
+      </div>
       <div class="salon-rows"></div>
     </div>
   `
@@ -38,9 +42,12 @@ export function openSalon(ui: HTMLElement, kind: 'barber' | 'boutique' | 'all') 
   })
   const rows = win.querySelector('.salon-rows') as HTMLElement
   const preview = win.querySelector('.salon-preview') as HTMLCanvasElement
+  const nameEl = win.querySelector('.salon-name') as HTMLElement
   const paint = () => {
     const a = store.save.avatar
-    drawPortrait(preview, a.hair, a.sweater, a.skin, a.glasses, a.hairStyle === 'long')
+    // the full look, hat included — exactly what everyone sees in the room
+    drawBust(preview, { hair: a.hair, sweater: a.sweater, skin: a.skin, glasses: a.glasses, hairStyle: a.hairStyle, hat: a.hat })
+    nameEl.textContent = `${a.charm ? a.charm + ' ' : ''}${store.save.info.name || 'you'} ♪`
     rows.querySelectorAll<HTMLElement>('.swatch, .salon-opt').forEach((b) => {
       const k = b.dataset.k!
       const v = b.dataset.v!

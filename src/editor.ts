@@ -730,6 +730,7 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
       <input class="px-input hud-napkin" placeholder="napkin: working on…" maxlength="40" />
       <div class="hud-btns">
         <button class="glossy-btn ed-mini hud-hp active">♪ headphones</button>
+        <button class="glossy-btn ed-mini hud-focus">focus view</button>
         <button class="glossy-btn ed-mini hud-leave">stand up</button>
       </div>
       <div class="ed-note hud-rate">earning 1 ◍ per focused minute ♪</div>
@@ -754,6 +755,9 @@ export function buildEditor(ui: HTMLElement, game: Game): Editor {
     game.setHeadphones(on)
   })
   ;(hudWin.querySelector('.hud-leave') as HTMLButtonElement).addEventListener('click', () => game.leaveSeat())
+  ;(hudWin.querySelector('.hud-focus') as HTMLButtonElement).addEventListener('click', () =>
+    window.dispatchEvent(new CustomEvent('studdy:focusview'))
+  )
 
   // ---------- marquee + café info card ----------
   const brandSub = document.querySelector('.brand-sub') as HTMLElement | null

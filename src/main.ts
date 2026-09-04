@@ -19,7 +19,10 @@ import { Lighting } from './lighting'
 import { buildUI, heartBurst } from './ui'
 import { createGame, type Game } from './game'
 import { buildEditor, type Editor } from './editor'
-import { unlock, sfx, duckMusic, setStation, getStation } from './sounds'
+import { unlock, sfx, duckMusic, setStation, getStation, nowPlaying } from './sounds'
+import { mountCompanion } from './companion'
+import { initFocusView } from './focus'
+import { showSessionSummary } from './summary'
 import * as store from './store'
 import { CATALOG } from './items'
 import { needsOnboarding, runOnboarding } from './onboarding'
@@ -336,6 +339,7 @@ if (isShowcase) {
       // studying at a real person's café pays its owner for hosting you
       if (placeId?.startsWith('user:')) logStudy(placeId.slice(5), minutes)
     },
+    onSummary: (d) => showSessionSummary(document.getElementById('ui')!, d),
     onClubPlaced: async (item) => {
       // the treasury pays for clubhouse furniture — or takes it back
       const price = CATALOG[item.itemId]?.price ?? 0
@@ -432,6 +436,39 @@ lighting.setBulbTone(localStorage.getItem('studdy-bulbs') === 'warm' ? 'warm' : 
 if (game) {
   editor = buildEditor(document.getElementById('ui')!, game)
   editor.setCapacity(game.capacity())
+}
+
+// ---------- the seat companion + focus view ----------
+// While the focus view is up the 3D scene stops rendering entirely — you're
+// still seated (presence and the focus clock are timer-driven), the GPU rests.
+let focusHold = false
+if (game) {
+  const uiEl = document.getElementById('ui')!
+  const companion = mountCompanion(uiEl, {
+    avatar: () => {
+      const a = store.save.avatar
+      return { hair: a.hair, sweater: a.sweater, skin: a.skin, hairStyle: a.hairStyle, glasses: a.glasses, hat: a.hat }
+    },
+    focusSec: () => game!.getFocusSec(),
+    seated: () => !!game!.getSession(),
+    onFocusView: () => focusView.open(),
+  })
+  const focusView = initFocusView(uiEl, {
+    seated: () => !!game!.getSession(),
+    focusSec: () => game!.getFocusSec(),
+    napkin: () => game!.getSession()?.napkin ?? '',
+    setNapkin: (v) => game!.setNapkin(v),
+    nowPlaying,
+    leave: () => game!.leaveSeat(),
+    onPause: (on) => {
+      focusHold = on
+    },
+    onVisibleChange: (open) => {
+      companion.setHidden(open)
+      if (!open) editor?.setSession(game!.getSession()) // re-sync the HUD napkin
+    },
+  })
+  window.addEventListener('studdy:focusview', () => focusView.open())
 }
 
 // ---------- speech bubbles (chat lines float over heads, then fade) ----------
@@ -961,6 +998,11 @@ function frame() {
   const now = performance.now()
   lastFrame = now
   qualityTick(now)
+  if (focusHold) {
+    // the focus view covers everything — let the GPU sleep for real
+    requestAnimationFrame(frame)
+    return
+  }
   const idle = now - lastInputAt > 1400
   if (idle && now - lastRenderAt < 31) {
     requestAnimationFrame(frame)
@@ -974,7 +1016,7 @@ frame()
 // keep transitions moving if rAF is throttled (embedded tab) — but a truly
 // hidden tab gets to rest (battery)
 setInterval(() => {
-  if (document.hidden) return
+  if (document.hidden || focusHold) return
   if (performance.now() - lastFrame > 400) {
     clockT.getDelta()
     step(0.35)

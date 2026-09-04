@@ -43,6 +43,17 @@ export interface GameCallbacks {
   onLampsChanged: () => void
   onVisit: (cafe: DreamCafe | null) => void
   onSession: (session: Session | null) => void
+  /** A real sitting ended (10+ focused minutes) — show the receipt. */
+  onSummary?: (d: {
+    minutes: number
+    beans: number
+    checkin: boolean
+    checkinBeans: number
+    streakAdvanced: boolean
+    streakCount: number
+    streakBeans: number
+    cafeName: string
+  }) => void
   /** A focus session ended: minutes earned, and where (place id or null=home). */
   onFocused?: (minutes: number, placeId: string | null) => void
   onPatronCard: (data: CardData, x: number, y: number) => void
@@ -1009,6 +1020,7 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
     if (!session) return
     const seat = seatRefs().find((s) => s.key === session!.seatKey)
     const minutes = Math.floor(getFocusSec() / 60) // verified time, not wall time
+    const cafeName = session.cafeName
     removeOccupant(session.seatKey)
     session = null
     cb.onSession(null)
@@ -1024,10 +1036,15 @@ export function createGame(scene: THREE.Scene, cb: GameCallbacks) {
       const r = store.earnFocus(minutes)
       cb.onFloat(`+${r.beans} beans`, 'earn')
       sfx.earn()
-      toast(`+${r.beans} beans for focused time ♪`)
-      if (r.checkin) setTimeout(() => toast(`first study of the day — +${r.checkinBeans} ◍ welcome back ♪`), 1400)
-      if (r.streakAdvanced)
-        setTimeout(() => toast(`${r.streakCount} day streak ★ +${r.streakBeans} ◍ — see you tomorrow ♪`), r.checkin ? 3000 : 1400)
+      if (minutes >= 10 && cb.onSummary) {
+        // a real sitting gets a proper receipt instead of a toast train
+        cb.onSummary({ minutes, ...r, cafeName })
+      } else {
+        toast(`+${r.beans} beans for focused time ♪`)
+        if (r.checkin) setTimeout(() => toast(`first study of the day — +${r.checkinBeans} ◍ welcome back ♪`), 1400)
+        if (r.streakAdvanced)
+          setTimeout(() => toast(`${r.streakCount} day streak ★ +${r.streakBeans} ◍ — see you tomorrow ♪`), r.checkin ? 3000 : 1400)
+      }
       // the café you studied at hosted you — its owner earns too
       cb.onFocused?.(minutes, visiting?.id ?? null)
     }

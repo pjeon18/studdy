@@ -1,5 +1,6 @@
 import type { Mode } from './lighting'
 import * as clock from './clock'
+import { drawBust } from './people'
 import { sfx, isEnabled, setEnabled, setMusicVolume, getMusicVolume } from './sounds'
 
 const SPARKLE_COLORS = ['#FF7A9E', '#6FBFA3', '#FFC24D', '#9D8BE0', '#FF9EBB']
@@ -56,49 +57,11 @@ export function drawPortrait(
   sweater = '#FFA7C1',
   skin = '#FFD9B8',
   glasses = false,
-  longHair = false
+  longHair = false,
+  hat = ''
 ) {
-  const g = cv.getContext('2d')!
-  const P = { h: hair, s: skin, e: '#2B1B12', b: '#FFA8A8', k: sweater, bg: '#FFE9F0' }
-  const grid = [
-    'gggggggggggg',
-    'ghhhhhhhhhhg',
-    'hhhhhhhhhhhh',
-    'hhhhhhhhhhhh',
-    'hshhsshhsshh',
-    'hssssssssssh',
-    'hsseessees.h',
-    'hssssssssssh',
-    'hbsssssssbsh',
-    'hssssssssssh',
-    '.ssssssssss.',
-    '.kkkkkkkkkk.',
-  ]
-  const map: Record<string, string> = { g: P.bg, h: P.h, s: P.s, e: P.e, b: P.b, k: P.k, '.': P.bg }
-  const cell = cv.width / 12
-  g.fillStyle = P.bg
-  g.fillRect(0, 0, cv.width, cv.height)
-  grid.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++) {
-      g.fillStyle = map[row[x]] ?? P.bg
-      g.fillRect(x * cell, y * cell, cell + 0.5, cell + 0.5)
-    }
-  })
-  if (longHair) {
-    g.fillStyle = P.h
-    g.fillRect(0, 7 * cell, cell, 5 * cell)
-    g.fillRect(11 * cell, 7 * cell, cell, 5 * cell)
-    g.fillRect(cell, 10 * cell, cell, 2 * cell)
-    g.fillRect(10 * cell, 10 * cell, cell, 2 * cell)
-  }
-  if (glasses) {
-    g.strokeStyle = '#4A3A30'
-    g.lineWidth = Math.max(1.5, cell * 0.32)
-    g.strokeRect(2.55 * cell, 5.6 * cell, 2.9 * cell, 1.8 * cell)
-    g.strokeRect(6.55 * cell, 5.6 * cell, 2.9 * cell, 1.8 * cell)
-    g.fillStyle = '#4A3A30'
-    g.fillRect(5.45 * cell, 6.2 * cell, 1.1 * cell, Math.max(1.5, cell * 0.32))
-  }
+  // projected from the same voxel head the 3D person is built from
+  drawBust(cv, { hair, sweater, skin, glasses, hairStyle: longHair ? 'long' : 'short', hat, bg: '#FFE9F0' })
 }
 
 export interface UICallbacks {

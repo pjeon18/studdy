@@ -1195,3 +1195,176 @@ textarea.px-input { resize: none; line-height: 1.35; }
 
 .salon-ward .salon-ward-btns { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; max-width: 210px; }
 .ward-price { font-style: normal; font-size: 11px; color: var(--ink-2); }
+
+/* ---------- the seat companion (your 2D self, bottom-right) ---------- */
+.companion-card {
+  position: fixed;
+  right: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  width: 192px;
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 5px 5px 0 rgba(74, 50, 38, 0.18);
+  padding: 6px 6px 7px;
+  z-index: 30;
+  animation: cardIn 0.18s steps(3, end);
+}
+.companion-card.companion-tucked { display: none; }
+.companion-scene {
+  display: block;
+  width: 176px;
+  height: 118px;
+  image-rendering: pixelated;
+  background:
+    linear-gradient(45deg, rgba(255, 122, 158, 0.08) 25%, transparent 25%, transparent 75%, rgba(255, 122, 158, 0.08) 75%),
+    linear-gradient(45deg, rgba(255, 122, 158, 0.08) 25%, transparent 25%, transparent 75%, rgba(255, 122, 158, 0.08) 75%),
+    var(--paper2);
+  background-size: 16px 16px, 16px 16px;
+  background-position: 0 0, 8px 8px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+}
+.companion-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 0 2px;
+}
+.companion-time { font-size: 13px; color: var(--ink-2); }
+
+/* ---------- the focus view (first-person, low stimulus) ---------- */
+.focus-view {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #FFF7E8 0%, #FFE9F0 100%);
+}
+body.ui-night .focus-view { background: linear-gradient(180deg, #241F2E 0%, #332B41 100%); }
+.focus-view.hidden { display: none; }
+.focus-top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.focus-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.focus-phase {
+  font-size: 17px;
+  letter-spacing: 2px;
+  color: #fff;
+  background: var(--pink);
+  border: 2px solid var(--ink);
+  border-radius: 99px;
+  padding: 2px 16px 4px;
+  text-shadow: 1.5px 1.5px 0 rgba(178, 74, 110, 0.9);
+}
+.focus-phase.on-break { background: var(--mint); text-shadow: 1.5px 1.5px 0 rgba(46, 94, 76, 0.9); }
+.focus-clock {
+  font-size: clamp(72px, 18vw, 132px);
+  line-height: 1;
+  color: var(--ink);
+  text-shadow: 4px 4px 0 rgba(255, 122, 158, 0.25);
+  font-variant-numeric: tabular-nums;
+}
+.focus-sub { font-size: 15px; color: var(--ink-2); }
+.focus-napkin { width: min(320px, 80vw); text-align: center; }
+.focus-view { padding-bottom: 0; }
+.focus-desk {
+  width: 100vw;
+  height: clamp(130px, 22vh, 230px);
+  margin: 0 -16px;
+  flex: none;
+  image-rendering: pixelated;
+}
+.focus-np {
+  min-height: 18px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  opacity: 0.85;
+  margin-bottom: 8px;
+}
+
+/* ---------- the session receipt ---------- */
+.sum-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(74, 50, 38, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sum-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.sum-confetti i {
+  position: absolute;
+  top: -12px;
+  animation: sumFall linear forwards;
+}
+@keyframes sumFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(105vh) rotate(300deg); opacity: 0; }
+}
+.sum-window { position: relative; width: min(340px, calc(100vw - 28px)); animation: cardIn 0.18s steps(3, end); }
+.sum-body { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 2px; }
+.sum-big {
+  font-size: 24px;
+  text-align: center;
+  color: var(--pink);
+  text-shadow: 2px 2px 0 var(--hs);
+  padding: 4px 0 2px;
+}
+.sum-rows { display: flex; flex-direction: column; }
+.sum-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 2px;
+  border-bottom: 1.5px dashed rgba(138, 109, 82, 0.35);
+  font-size: 14.5px;
+}
+.sum-row:last-child { border-bottom: none; }
+.sum-row span { color: var(--ink-2); }
+.sum-row b { color: var(--ink); }
+.sum-done { align-self: center; margin-top: 2px; }
+
+/* ---------- the fitting room, grown up ---------- */
+.salon-window { width: 420px; max-width: calc(100vw - 20px); }
+.salon-fig { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: none; }
+.salon-preview {
+  width: 160px;
+  height: 208px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  image-rendering: pixelated;
+  background:
+    linear-gradient(45deg, rgba(255, 122, 158, 0.1) 25%, transparent 25%, transparent 75%, rgba(255, 122, 158, 0.1) 75%),
+    linear-gradient(45deg, rgba(255, 122, 158, 0.1) 25%, transparent 25%, transparent 75%, rgba(255, 122, 158, 0.1) 75%),
+    var(--paper2);
+  background-size: 20px 20px, 20px 20px;
+  background-position: 0 0, 10px 10px;
+}
+.salon-name { font-size: 13px; color: var(--ink-2); }
+.salon-rows { max-height: 300px; overflow-y: auto; padding-right: 2px; }
+
+@media (max-width: 720px) {
+  /* the corner scene needs room the phone doesn't have — focus view lives in the HUD there */
+  .companion-card { display: none; }
+  .salon-body { flex-direction: column; align-items: center; }
+  .salon-preview { width: 128px; height: 160px; }
+  .salon-rows { max-height: 44vh; width: 100%; }
+  .focus-clock { font-size: clamp(56px, 22vw, 96px); }
+}
