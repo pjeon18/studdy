@@ -24,6 +24,8 @@ interface Proportions {
   torsoD: number
   /** hanging side-arm thickness in voxels (0 = keep nub arms off) */
   arm: number
+  /** per-leg width (default derives from the torso) — legs are the smallest tier */
+  legW?: number
 }
 
 interface LabPerson {
@@ -119,7 +121,7 @@ interface HeadKit {
   eyeH: number
   ao: boolean
 }
-const HEAD_FIXED: HeadKit = { build: buildHeadFixed, eyeY: 0.22, eyeW: 0.095, eyeH: 0.26, ao: true }
+const HEAD_FIXED: HeadKit = { build: buildHeadFixed, eyeY: 0.25, eyeW: 0.095, eyeH: 0.32, ao: true }
 export const HEAD_ROUND: HeadKit = { build: buildHeadV2, eyeY: 0.31, eyeW: 0.075, eyeH: 0.3, ao: false }
 
 function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions, head: HeadKit): LabPerson {
@@ -132,10 +134,12 @@ function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions, 
   const hxR = hxL + P.torsoW - 1
   const hzL = -Math.floor(P.torsoD / 2)
   const hzR = hzL + P.torsoD - 1
-  // two separate legs with a gap between them (the current build fuses them)
-  const legW = Math.floor((P.torsoW - 4) / 2)
-  const legLx = hxL + 1
-  const legRx = hxR - legW
+  // two separate legs with a gap between them (the current build fuses them),
+  // inset from the torso edges so the width order reads head > body > legs
+  const legW = P.legW ?? Math.floor((P.torsoW - 4) / 2)
+  const inset = Math.round((P.torsoW - (2 * legW + 2)) / 2)
+  const legLx = hxL + inset
+  const legRx = legLx + legW + 2
 
   let torsoY0: number
   if (pose === 'stand') {
@@ -285,7 +289,8 @@ furnish(3.5)
 }
 
 // right · A: the same head with the hair fixes, on the short-legged body
-const A_BODY: Proportions = { leg: 5, torsoW: 12, torsoH: 11, torsoD: 7, arm: 3 }
+// leg 6 + torso 14 puts the head base at 20 voxels — the current build's exact height
+const A_BODY: Proportions = { leg: 6, torsoW: 14, torsoH: 14, torsoD: 7, arm: 2, legW: 4 }
 furnish(10.2)
 {
   const sit = buildPersonV2(LOOKS[0], 'sit', A_BODY, HEAD_FIXED)
