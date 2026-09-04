@@ -8,7 +8,7 @@ import { VoxelGrid } from '../voxel'
 import { PAL, VOX, setToonRamp } from '../build'
 import { buildShell } from '../shell'
 import { buildItem } from '../items'
-import { buildPerson, makeAnimator, makeIdleAnimator, type PersonOpts } from '../people'
+import { type PersonOpts } from '../people'
 import type { RoomDoc } from '../types'
 
 // the game's day ramp so materials read exactly like in-game
@@ -71,18 +71,24 @@ function buildHeadV2(opts: PersonOpts): VoxelGrid {
     for (let z = 15; z >= 8; z--) if (g.has(x, y, z)) return z
     return -1
   }
-  // a clean straight fringe, two rows above the eyes — nothing dips to the cheeks
-  for (let x = 0; x <= 16; x++)
-    for (const y of [7, 8]) {
+  // the bangs are a PROUD block riding one voxel in front of the brow — real
+  // depth, not a recolor of the rounded surface — following the head's curve
+  for (let x = 1; x <= 15; x++) {
+    const z8 = front(x, 8)
+    if (z8 < 0) continue
+    g.set(x, 8, z8, opts.hair) // hairline row under the block
+    for (const y of [8, 9, 10]) {
       const z = front(x, y)
-      if (z >= 0) g.set(x, y, z, opts.hair)
+      if (z >= 0) g.set(x, y, z + 1, opts.hair)
     }
-  for (const [bx, by] of [[4, 1], [5, 1], [4, 2], [5, 2], [11, 1], [12, 1], [11, 2], [12, 2]] as const) {
+  }
+  // the rounder face carries its features higher: blush up at 3-4, mouth at 2
+  for (const [bx, by] of [[4, 3], [5, 3], [4, 4], [5, 4], [11, 3], [12, 3], [11, 4], [12, 4]] as const) {
     const z = front(bx, by)
     if (z >= 0) g.set(bx, by, z, PAL.blush)
   }
-  const mz = front(8, 1)
-  if (mz >= 0) g.set(8, 1, mz, '#E08A7A')
+  const mz = front(8, 2)
+  if (mz >= 0) g.set(8, 2, mz, '#E08A7A')
   if (opts.hairStyle === 'long') {
     // the back curtain only — no face-framing front strands
     g.fill(2, -7, 0, 14, -1, 3, opts.hair)
@@ -91,7 +97,40 @@ function buildHeadV2(opts: PersonOpts): VoxelGrid {
   return g
 }
 
-function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions): LabPerson {
+// The current game head with exactly Paul's hair fixes and nothing else:
+// no crown highlight patch, no side locks, no bang scallops dipping toward
+// the eyes. Box shape, feature heights, and everything else untouched.
+function buildHeadFixed(opts: PersonOpts): VoxelGrid {
+  const skin = opts.skin ?? PAL.skin
+  const g = new VoxelGrid()
+  g.roundedBox(0, 0, 0, 16, 12, 15, skin)
+  g.roundedBox(0, 9, 0, 16, 12, 15, opts.hair)
+  g.roundedBox(1, 13, 1, 15, 13, 14, opts.hair) // crown step, one solid color
+  g.fill(0, 0, 0, 16, 8, 5, opts.hair) // back of head
+  g.fill(0, 3, 0, 1, 8, 15, opts.hair) // sides
+  g.fill(15, 3, 0, 16, 8, 15, opts.hair)
+  g.fill(2, 7, 15, 14, 8, 15, opts.hair) // straight bangs, no scallop
+  g.fill(4, 1, 15, 5, 2, 15, PAL.blush)
+  g.fill(11, 1, 15, 12, 2, 15, PAL.blush)
+  g.set(8, 1, 15, '#E08A7A')
+  if (opts.hairStyle === 'long') {
+    g.fill(1, -7, 0, 15, -1, 4, opts.hair) // back curtain only
+    g.fill(3, -10, 0, 13, -8, 3, opts.hair)
+  }
+  return g
+}
+
+// which head a station wears, and where its eyes sit (the round face carries
+// them noticeably higher)
+interface HeadKit {
+  build: (o: PersonOpts) => VoxelGrid
+  eyeY: number
+  ao: boolean
+}
+const HEAD_FIXED: HeadKit = { build: buildHeadFixed, eyeY: 0.22, ao: true }
+const HEAD_ROUND: HeadKit = { build: buildHeadV2, eyeY: 0.31, ao: false }
+
+function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions, head: HeadKit): LabPerson {
   const group = new THREE.Group()
   const skin = opts.skin ?? PAL.skin
   const deep = opts.sweaterDeep ?? shade(opts.sweater, 0.78)
@@ -150,12 +189,12 @@ function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions):
   bodyMesh.position.set(VOX / 2, 0, 0)
   group.add(bodyMesh)
 
-  // the rounded experimental head, riding higher. AO off + low jitter: on a
-  // curved voxel surface every rounding step is a crevice, and the default
-  // shading paints dark bands across the hair.
+  // the station's head. Round heads build AO-off + low jitter (on a curved
+  // voxel surface every rounding step is a crevice and the default shading
+  // paints dark bands across the hair); the box head keeps game shading.
   const headGroup = new THREE.Group()
-  const hd = buildHeadV2(opts)
-  const headMesh = hd.build({ ao: false, jitter: 0.005 })
+  const hd = head.build(opts)
+  const headMesh = head.ao ? hd.build() : hd.build({ ao: false, jitter: 0.005 })
   headMesh.scale.setScalar(VOX)
   headMesh.position.set((-17 * VOX) / 2, 0, (-16 * VOX) / 2)
   headGroup.add(headMesh)
@@ -163,8 +202,8 @@ function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions):
   const mkEye = () => new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.3, 0.05), eyeMat)
   const eyeL = mkEye()
   const eyeR = mkEye()
-  eyeL.position.set(-0.26, 0.22, (16 * VOX) / 2 + 0.01)
-  eyeR.position.set(0.26, 0.22, (16 * VOX) / 2 + 0.01)
+  eyeL.position.set(-0.26, head.eyeY, (16 * VOX) / 2 + 0.01)
+  eyeR.position.set(0.26, head.eyeY, (16 * VOX) / 2 + 0.01)
   headGroup.add(eyeL, eyeR)
   const headY = (torsoY0 + P.torsoH) * VOX + 0.05
   headGroup.position.set(0, headY, 0)
@@ -228,39 +267,27 @@ const LOOKS: PersonOpts[] = [
 
 const SEAT_Y = 1.78 // stool cushion top (catalog seatY)
 
-// A · the current build
-furnish(3.6)
-{
-  const sit = buildPerson(LOOKS[0], 'sit')
-  sit.group.position.set(1.9, SEAT_Y + 3 * VOX, 4.6)
-  sit.group.rotation.y = Math.PI / 2
-  scene.add(sit.group)
-  animators.push(makeAnimator(sit, 0.7))
-  const stand = buildPerson(LOOKS[0], 'stand')
-  stand.group.position.set(5.2, 0, 6.6)
-  stand.group.rotation.y = 0.73
-  scene.add(stand.group)
-  animators.push(makeIdleAnimator(stand, 1.9))
-}
-
-// B / C / D · the experiments
-const VARIANTS: { x: number; P: Proportions }[] = [
-  // B · a small step: short true legs, arms at the sides
-  { x: 10.2, P: { leg: 12, torsoW: 12, torsoH: 11, torsoD: 7, arm: 3 } },
+// A · Paul's pick: the current box head (hair fixed) on B's body
+// B / C / D · the round-head experiments
+const B_BODY: Proportions = { leg: 12, torsoW: 12, torsoH: 11, torsoD: 7, arm: 3 }
+const VARIANTS: { x: number; P: Proportions; head: HeadKit }[] = [
+  { x: 3.6, P: B_BODY, head: HEAD_FIXED },
+  // B · the same body under the rounded head
+  { x: 10.2, P: B_BODY, head: HEAD_ROUND },
   // C · reference proportions: ~2.6 units tall, clear legs, hands at mid-thigh
-  { x: 16.8, P: { leg: 17, torsoW: 12, torsoH: 12, torsoD: 7, arm: 3 } },
+  { x: 16.8, P: { leg: 17, torsoW: 12, torsoH: 12, torsoD: 7, arm: 3 }, head: HEAD_ROUND },
   // D · reference, slimmed: narrower torso so the head reads even bigger
-  { x: 23.4, P: { leg: 17, torsoW: 10, torsoH: 12, torsoD: 6, arm: 3 } },
+  { x: 23.4, P: { leg: 17, torsoW: 10, torsoH: 12, torsoD: 6, arm: 3 }, head: HEAD_ROUND },
 ]
-VARIANTS.forEach(({ x, P }, i) => {
+VARIANTS.forEach(({ x, P, head }, i) => {
   furnish(x)
-  const look = LOOKS[i + 1]
-  const sit = buildPersonV2(look, 'sit', P)
+  const look = LOOKS[i]
+  const sit = buildPersonV2(look, 'sit', P, head)
   sit.group.position.set(x - 1.7, SEAT_Y, 4.6)
   sit.group.rotation.y = Math.PI / 2
   scene.add(sit.group)
   animators.push(labAnimator(sit, i * 1.4))
-  const stand = buildPersonV2(look, 'stand', P)
+  const stand = buildPersonV2(look, 'stand', P, head)
   stand.group.position.set(x + 1.6, 0, 6.6)
   stand.group.rotation.y = 0.73
   scene.add(stand.group)
