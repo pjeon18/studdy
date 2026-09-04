@@ -61,7 +61,9 @@ function buildHeadV2(opts: PersonOpts): VoxelGrid {
     for (let y = 0; y <= 13; y++)
       for (let z = 0; z <= 15; z++) {
         if (!inside(x, y, z)) continue
-        const hair = y >= 9 || z <= 5 || ((x <= 1 || x >= 15) && y >= 3)
+        // side hair stays BEHIND the face (z <= 10): at eye level the columns
+        // beside the face are skin, so no hair pixel ever touches the eyes
+        const hair = y >= 9 || z <= 5 || ((x <= 1 || x >= 15) && y >= 3 && z <= 10)
         g.set(x, y, z, hair ? opts.hair : skin)
       }
   /** Nearest-to-camera occupied cell in a front column (the curved face). */
@@ -108,9 +110,9 @@ function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions):
   if (pose === 'stand') {
     torsoY0 = P.leg
     for (const lx of [legLx, legRx]) {
-      body.fill(lx, 2, hzL + 1, lx + legW - 1, P.leg - 1, hzR - 1, PAL.denim)
-      // shoes: a little proud toe cap
-      body.fill(lx, 0, hzL + 1, lx + legW - 1, 1, hzR, '#FFFFFF')
+      body.fill(lx, 0, hzL + 1, lx + legW - 1, P.leg - 1, hzR - 1, PAL.denim)
+      // the current build's sneaker: a chunky white toe box poking forward
+      body.fill(lx, 0, hzR - 2, lx + legW - 1, 1, hzR + 2, '#FFFFFF')
     }
   } else {
     // origin = cushion top. Thighs rest on it, calves dangle in front,
@@ -119,7 +121,7 @@ function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions):
     for (const lx of [legLx, legRx]) {
       body.fill(lx, 0, hzL + 1, lx + legW - 1, 2, hzR + 5, PAL.denim) // thighs forward
       body.fill(lx, -8, hzR + 3, lx + legW - 1, -1, hzR + 5, PAL.denim) // calves down
-      body.fill(lx, -10, hzR + 3, lx + legW - 1, -9, hzR + 6, '#FFFFFF') // shoes
+      body.fill(lx, -10, hzR + 4, lx + legW - 1, -9, hzR + 8, '#FFFFFF') // sneaker toe boxes
     }
   }
 
