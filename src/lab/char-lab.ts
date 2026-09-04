@@ -114,10 +114,13 @@ function buildHeadFixed(opts: PersonOpts): VoxelGrid {
 interface HeadKit {
   build: (o: PersonOpts) => VoxelGrid
   eyeY: number
+  /** eye box size — A's are a touch shorter and wider than the game's 0.075 x 0.3 */
+  eyeW: number
+  eyeH: number
   ao: boolean
 }
-const HEAD_FIXED: HeadKit = { build: buildHeadFixed, eyeY: 0.22, ao: true }
-export const HEAD_ROUND: HeadKit = { build: buildHeadV2, eyeY: 0.31, ao: false }
+const HEAD_FIXED: HeadKit = { build: buildHeadFixed, eyeY: 0.22, eyeW: 0.095, eyeH: 0.26, ao: true }
+export const HEAD_ROUND: HeadKit = { build: buildHeadV2, eyeY: 0.31, eyeW: 0.075, eyeH: 0.3, ao: false }
 
 function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions, head: HeadKit): LabPerson {
   const group = new THREE.Group()
@@ -146,11 +149,15 @@ function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions, 
     // origin = cushion top. Thighs rest on it, calves dangle in front,
     // feet hang free (reference chibis dangle — stools are tall to them).
     torsoY0 = 3
+    // the whole seated leg scales with leg length: short standing legs mean
+    // short thighs forward AND short dangling calves
+    const thighFwd = Math.min(5, Math.max(3, P.leg - 4))
+    const calf = Math.min(8, Math.max(3, P.leg - 3))
+    const knee = hzR + thighFwd
     for (const lx of [legLx, legRx]) {
-      const calf = Math.min(8, P.leg) // short legs stay short on the stool
-      body.fill(lx, 0, hzL + 1, lx + legW - 1, 2, hzR + 5, PAL.denim) // thighs forward
-      body.fill(lx, -calf, hzR + 3, lx + legW - 1, -1, hzR + 5, PAL.denim) // calves down
-      body.fill(lx, -calf - 2, hzR + 4, lx + legW - 1, -calf - 1, hzR + 8, '#FFFFFF') // sneaker toe boxes
+      body.fill(lx, 0, hzL + 1, lx + legW - 1, 2, knee, PAL.denim) // thighs forward
+      body.fill(lx, -calf, knee - 2, lx + legW - 1, -1, knee, PAL.denim) // calves down
+      body.fill(lx, -calf - 2, knee - 1, lx + legW - 1, -calf - 1, knee + 3, '#FFFFFF') // sneaker toe boxes
     }
   }
 
@@ -189,7 +196,7 @@ function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions, 
   headMesh.position.set((-17 * VOX) / 2, 0, (-16 * VOX) / 2)
   headGroup.add(headMesh)
   const eyeMat = new THREE.MeshBasicMaterial({ color: PAL.dark })
-  const mkEye = () => new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.3, 0.05), eyeMat)
+  const mkEye = () => new THREE.Mesh(new THREE.BoxGeometry(head.eyeW, head.eyeH, 0.05), eyeMat)
   const eyeL = mkEye()
   const eyeR = mkEye()
   eyeL.position.set(-0.26, head.eyeY, (16 * VOX) / 2 + 0.01)
@@ -278,7 +285,7 @@ furnish(3.5)
 }
 
 // right · A: the same head with the hair fixes, on the short-legged body
-const A_BODY: Proportions = { leg: 7, torsoW: 12, torsoH: 11, torsoD: 7, arm: 3 }
+const A_BODY: Proportions = { leg: 5, torsoW: 12, torsoH: 11, torsoD: 7, arm: 3 }
 furnish(10.2)
 {
   const sit = buildPersonV2(LOOKS[0], 'sit', A_BODY, HEAD_FIXED)
