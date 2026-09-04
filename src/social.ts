@@ -158,15 +158,28 @@ async function publishNow() {
   }
   if (!updated?.length) {
     const { error: insErr } = await supa.from('cafes').insert({ user_id: me.id, ...row })
-    if (insErr && insErr.code !== '23505' && !missingSchema(insErr))
+    if (insErr && insErr.code !== '23505' && !missingSchema(insErr)) {
       console.warn('[social] café publish failed:', insErr.message)
+      return
+    }
   }
+  lastPublished = JSON.stringify(doc)
 }
 
 function schedulePublish() {
   clearTimeout(publishT)
   publishT = setTimeout(publishNow, 3000)
 }
+
+// The heartbeat: every few minutes, push the café if it drifted from what
+// the cloud last accepted — so a client that missed events (or spent weeks
+// running an old build) still converges on the current room.
+let lastPublished = ''
+setInterval(() => {
+  if (!getSupabase() || !store.save.info.name) return
+  const now = JSON.stringify(publicDoc())
+  if (now !== lastPublished) publishNow()
+}, 5 * 60_000)
 
 // ---------- fetching + sanitizing someone else's café ----------
 

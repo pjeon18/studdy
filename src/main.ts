@@ -470,6 +470,32 @@ if (game) buildGoals(document.getElementById('ui')!)
 // accounts + cloud saves (no-op unless Supabase env vars are set)
 let clubPushT: ReturnType<typeof setTimeout> | undefined
 
+// ---------- stale-build watchdog ----------
+// Installed PWAs happily run week-old code without ever reloading, which
+// once left a café publishing through a long-fixed bug. Poll the deployed
+// version and refresh gently the moment it's safe (never mid-session).
+if (import.meta.env.PROD) {
+  let newerBuild = false
+  const checkVersion = async () => {
+    try {
+      const res = await fetch(import.meta.env.BASE_URL + 'version.json', { cache: 'no-store' })
+      const { v } = await res.json()
+      if (v && v !== __STUDDY_BUILD__) newerBuild = true
+    } catch {
+      /* offline is fine */
+    }
+    if (newerBuild && game && !game.getSession()) {
+      toast('the café got an update — refreshing ♪')
+      setTimeout(() => location.reload(), 1600)
+    }
+  }
+  setInterval(checkVersion, 10 * 60_000)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkVersion()
+  })
+  setTimeout(checkVersion, 30_000)
+}
+
 if (game) {
   initCloud().then(() => {
     // home radio schedule keys on the real uid once the session is up,
