@@ -8,7 +8,7 @@ import { VoxelGrid } from '../voxel'
 import { PAL, VOX, setToonRamp } from '../build'
 import { buildShell } from '../shell'
 import { buildItem } from '../items'
-import { buildHeadGrid, type PersonOpts } from '../people'
+import { buildHeadGrid, buildPerson, makeAnimator, makeIdleAnimator, type PersonOpts } from '../people'
 import type { RoomDoc } from '../types'
 
 // the game's day ramp so materials read exactly like in-game
@@ -117,7 +117,7 @@ interface HeadKit {
   ao: boolean
 }
 const HEAD_FIXED: HeadKit = { build: buildHeadFixed, eyeY: 0.22, ao: true }
-const HEAD_ROUND: HeadKit = { build: buildHeadV2, eyeY: 0.31, ao: false }
+export const HEAD_ROUND: HeadKit = { build: buildHeadV2, eyeY: 0.31, ao: false }
 
 function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions, head: HeadKit): LabPerson {
   const group = new THREE.Group()
@@ -217,17 +217,15 @@ function labAnimator(p: LabPerson, phase = 0): (dt: number, t: number) => void {
   }
 }
 
-// ---------- the stage: one wide room, four stations ----------
+// ---------- the stage: the current build vs A, side by side ----------
 const room: RoomDoc = {
-  w: 27,
+  w: 14,
   d: 10,
   floor: 'honey',
   wallStyle: 'cream',
   openings: [
-    { id: 'w1', wall: 'back', kind: 'window', start: 2, width: 4 },
-    { id: 'w2', wall: 'back', kind: 'window', start: 9, width: 4 },
-    { id: 'w3', wall: 'back', kind: 'window', start: 16, width: 4 },
-    { id: 'w4', wall: 'back', kind: 'window', start: 23, width: 3 },
+    { id: 'w1', wall: 'back', kind: 'window', start: 1.5, width: 4 },
+    { id: 'w2', wall: 'back', kind: 'window', start: 8.5, width: 4 },
   ],
 }
 const scene = new THREE.Scene()
@@ -257,39 +255,50 @@ const LOOKS: PersonOpts[] = [
 
 const SEAT_Y = 1.78 // stool cushion top (catalog seatY)
 
-// A · Paul's pick: the current box head (hair fixed) on B's body
-// B / C / D · the round-head experiments
-const B_BODY: Proportions = { leg: 12, torsoW: 12, torsoH: 11, torsoD: 7, arm: 3 }
-const VARIANTS: { x: number; P: Proportions; head: HeadKit }[] = [
-  // A · way shorter legs: the current build's overall height, real legs
-  { x: 3.6, P: { ...B_BODY, leg: 7 }, head: HEAD_FIXED },
-  // B · the same body under the rounded head
-  { x: 10.2, P: B_BODY, head: HEAD_ROUND },
-  // C · reference proportions: ~2.6 units tall, clear legs, hands at mid-thigh
-  { x: 16.8, P: { leg: 17, torsoW: 12, torsoH: 12, torsoD: 7, arm: 3 }, head: HEAD_ROUND },
-  // D · reference, slimmed: narrower torso so the head reads even bigger
-  { x: 23.4, P: { leg: 17, torsoW: 10, torsoH: 12, torsoD: 6, arm: 3 }, head: HEAD_ROUND },
-]
-VARIANTS.forEach(({ x, P, head }, i) => {
-  furnish(x)
-  const look = LOOKS[i]
-  const sit = buildPersonV2(look, 'sit', P, head)
-  sit.group.position.set(x - 1.7, SEAT_Y, 4.6)
-  sit.group.rotation.y = Math.PI / 2
+// drag turns everyone in place, so both characters can be read from any angle
+const spinners: { group: THREE.Group; base: number }[] = []
+let spin = 0
+function applySpin() {
+  for (const s of spinners) s.group.rotation.y = s.base + spin
+}
+
+// left · the current game build, exactly as shipped
+furnish(3.5)
+{
+  const sit = buildPerson(LOOKS[0], 'sit')
+  sit.group.position.set(1.8, SEAT_Y + 3 * VOX, 4.6)
   scene.add(sit.group)
-  animators.push(labAnimator(sit, i * 1.4))
-  const stand = buildPersonV2(look, 'stand', P, head)
-  stand.group.position.set(x + 1.6, 0, 6.6)
-  stand.group.rotation.y = 0.73
+  animators.push(makeAnimator(sit, 0.7))
+  spinners.push({ group: sit.group, base: Math.PI / 2 })
+  const stand = buildPerson(LOOKS[0], 'stand')
+  stand.group.position.set(5.1, 0, 6.8)
   scene.add(stand.group)
-  animators.push(labAnimator(stand, i * 1.4 + 0.8))
-})
+  animators.push(makeIdleAnimator(stand, 1.9))
+  spinners.push({ group: stand.group, base: 0.73 })
+}
+
+// right · A: the same head with the hair fixes, on the short-legged body
+const A_BODY: Proportions = { leg: 7, torsoW: 12, torsoH: 11, torsoD: 7, arm: 3 }
+furnish(10.2)
+{
+  const sit = buildPersonV2(LOOKS[0], 'sit', A_BODY, HEAD_FIXED)
+  sit.group.position.set(8.5, SEAT_Y, 4.6)
+  scene.add(sit.group)
+  animators.push(labAnimator(sit, 1.4))
+  spinners.push({ group: sit.group, base: Math.PI / 2 })
+  const stand = buildPersonV2(LOOKS[0], 'stand', A_BODY, HEAD_FIXED)
+  stand.group.position.set(11.8, 0, 6.8)
+  scene.add(stand.group)
+  animators.push(labAnimator(stand, 2.2))
+  spinners.push({ group: stand.group, base: 0.73 })
+}
+applySpin()
 
 // ---------- the game's day lighting, roughly ----------
 const hemi = new THREE.HemisphereLight('#FFFAF2', '#EBE0D0', 0.55)
 const dir = new THREE.DirectionalLight('#FFF4E7', 0.85)
 dir.position.set(30, 42, 26)
-dir.target.position.set(13, 0, 5)
+dir.target.position.set(7, 0, 5)
 dir.castShadow = true
 dir.shadow.mapSize.set(2048, 2048)
 dir.shadow.normalBias = 0.06
@@ -298,8 +307,8 @@ dir.shadow.camera.right = 26
 dir.shadow.camera.top = 26
 dir.shadow.camera.bottom = -26
 const wash = new THREE.DirectionalLight('#FFE7C2', 0.5)
-wash.position.set(13, 30, 5)
-wash.target.position.set(13, 0, 5)
+wash.position.set(7, 30, 5)
+wash.target.position.set(7, 0, 5)
 scene.add(hemi, dir, dir.target, wash, wash.target, new THREE.AmbientLight('#FFF3E2', 0.35))
 
 // ---------- camera: the game's iso angle, wheel zoom + drag pan ----------
@@ -309,7 +318,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap
 document.body.appendChild(renderer.domElement)
 
 const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200)
-const target = new THREE.Vector3(13.5, 1.6, 5)
+const target = new THREE.Vector3(7, 1.5, 5)
 const OFFSET = new THREE.Vector3(24, 28.5, 27)
 let zoom = 1
 function placeCam() {
@@ -327,26 +336,16 @@ window.addEventListener(
 )
 let dragging = false
 let lastX = 0
-let lastY = 0
-const camRight = new THREE.Vector3()
-const camUp = new THREE.Vector3()
 window.addEventListener('pointerdown', (e) => {
   dragging = true
   lastX = e.clientX
-  lastY = e.clientY
 })
 window.addEventListener('pointerup', () => (dragging = false))
 window.addEventListener('pointermove', (e) => {
   if (!dragging) return
-  const wpp = (cam.right - cam.left) / window.innerWidth
-  cam.updateMatrixWorld()
-  camRight.setFromMatrixColumn(cam.matrixWorld, 0)
-  camUp.setFromMatrixColumn(cam.matrixWorld, 1)
-  target.addScaledVector(camRight, -(e.clientX - lastX) * wpp)
-  target.addScaledVector(camUp, (e.clientY - lastY) * wpp)
+  spin += (e.clientX - lastX) * 0.012
   lastX = e.clientX
-  lastY = e.clientY
-  placeCam()
+  applySpin()
 })
 
 const clock = new THREE.Clock()
@@ -358,7 +357,7 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.05)
   for (const a of animators) a(dt, t)
   const aspect = W / H
-  const halfW = 15 / zoom
+  const halfW = 8.5 / zoom
   cam.left = -halfW
   cam.right = halfW
   cam.top = halfW / aspect
@@ -375,5 +374,9 @@ frame()
     target.set(x, y, z)
     zoom = zm
     placeCam()
+  },
+  spin(rad: number) {
+    spin = rad
+    applySpin()
   },
 }

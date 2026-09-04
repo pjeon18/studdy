@@ -6,19 +6,17 @@
     <title>studdy · character lab (dev only)</title>
     <style>
       html, body { margin: 0; height: 100%; background: #B8E4F6; font-family: monospace; overflow: hidden; }
-      #labels { position: fixed; inset: 0; display: grid; grid-template-columns: repeat(4, 1fr); pointer-events: none; }
+      #labels { position: fixed; inset: 0; display: grid; grid-template-columns: repeat(2, 1fr); pointer-events: none; }
       #labels span { align-self: end; padding: 10px; font-size: 13px; font-weight: 700; color: #4A3226; background: rgba(255,247,232,.85); margin: 8px; border: 2px solid #4A3226; justify-self: start; }
       #note { position: fixed; top: 10px; left: 10px; font-size: 12px; color: #4A3226; background: rgba(255,247,232,.85); border: 2px solid #4A3226; padding: 8px 10px; pointer-events: none; }
       canvas { display: block; }
     </style>
   </head>
   <body>
-    <div id="note">character lab · box head fixed vs round heads · wheel = zoom, drag = pan</div>
+    <div id="note">character lab · drag = rotate the characters · wheel = zoom</div>
     <div id="labels">
-      <span>A · current head + short legs</span>
-      <span>B · round head, same body</span>
-      <span>C · reference + round head (~2.6u)</span>
-      <span>D · slim torso + round head</span>
+      <span>current build</span>
+      <span>A · hair fixed + short legs</span>
     </div>
     <script type="module" src="/src/lab/char-lab.ts"></script>
   </body>
