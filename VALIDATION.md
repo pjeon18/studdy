@@ -1097,3 +1097,39 @@ Audited ahead of real accounts; findings fixed:
   ✦ charm rendering on the player.
 - Base looks (skin tones, hair colors, hair length, glasses) remain
   free — identity is never paywalled, per the economy doc.
+
+## 2026-09-03 — the 2D layer: companion, focus view, receipts, fitting room
+Paul brought mockups mixing cute 2D pixel elements into the 3D game and
+picked three ideas; all shipped, plus a session receipt.
+- SPRITE PIPELINE: `VoxelGrid.entries()` + `people.buildHeadGrid()` +
+  `people.drawBust()` — the 2D sprite is a front orthographic projection
+  of the SAME voxel head the 3D person is built from (hat, hair style,
+  blush, long-hair curtain), with a 1px ink outline and z-depth shading.
+  One source of truth; the sprite can never drift from the 3D look.
+  `ui.drawPortrait` (profile cards) now delegates to it.
+- SEAT COMPANION (desktop only, hidden ≤720px): while seated, a card in
+  the bottom-right shows your 2D self at a mini desk — laptop, steaming
+  mug, pixel-snapped bob, blinks, floating ♪ — plus verified focused
+  time and a "focus view" button. Redraws at ~6fps on a 176×118 canvas;
+  bust frames cached per look.
+- FOCUS VIEW: first-person low-stimulus screen (session HUD button +
+  companion button; mobile gets it via the HUD). Big communal 25/5
+  clock, phase pill, editable napkin, now-playing line, and a
+  full-bleed pixel desk (open book, mug + steam, pencil, sticky notes,
+  plant) anchored to the bottom edge. Desk canvas is aspect-derived
+  (64 logical rows, columns from screen ratio) so pixels stay square at
+  any size; side items guard against narrow screens. While open,
+  main.ts skips step()/render entirely (focusHold) — the GPU truly
+  rests, so focus view is also the battery-saver mode. Auto-closes if
+  the session ends (doze kick, seat removed). Respects body.ui-night.
+- SESSION RECEIPT: standing up from a 10+ focused-minute sitting shows
+  a confetti summary window (focused time, beans, first-study bonus,
+  streak, host café) with roomy dashed rows — replacing the toast train
+  for real sessions; short sits keep the quiet toast. Fired via the new
+  onSummary game callback.
+- FITTING ROOM: the salon is 420px wide with a 160×208 live preview of
+  the full current look (hat included — the old 12×12 hand sprite
+  ignored hats entirely) on a checkered stage, name + charm plate
+  under it. Mobile stacks the figure above the rows.
+- Verified via Playwright: companion card, focus view (desktop day,
+  night chrome, 390×844 mobile), summary window, fitting room. tsc + build clean.

@@ -8,7 +8,7 @@ import { VoxelGrid } from '../voxel'
 import { PAL, VOX, setToonRamp } from '../build'
 import { buildShell } from '../shell'
 import { buildItem } from '../items'
-import { buildPerson, buildHeadGrid, makeAnimator, makeIdleAnimator, type PersonOpts } from '../people'
+import { buildPerson, makeAnimator, makeIdleAnimator, type PersonOpts } from '../people'
 import type { RoomDoc } from '../types'
 
 // the game's day ramp so materials read exactly like in-game
@@ -37,6 +37,56 @@ interface LabPerson {
 function shade(hex: string, f: number): string {
   const c = new THREE.Color(hex).multiplyScalar(f)
   return `#${c.getHexString()}`
+}
+
+// The experimental head: same 17×14×16 footprint and palette, but the volume
+// is a voxel superellipsoid (a rounded cube) — soft crown, chamfered corners,
+// round jaw. Changes from the game head, per Paul's notes: no crown highlight
+// patch, no side locks or low bang scallops touching the face, no front
+// strands on the long style. Features (fringe, blush, mouth) are painted on
+// the curved front SURFACE instead of a flat z=15 plane.
+function buildHeadV2(opts: PersonOpts): VoxelGrid {
+  const g = new VoxelGrid()
+  const skin = opts.skin ?? PAL.skin
+  const N = 2.8 // 2 = egg, ∞ = box; 2.8 keeps voxel-cube character with soft corners
+  const cx = 8
+  const cy = 6.6
+  const cz = 7.5
+  const rx = 8.9
+  const ry = 7.6
+  const rz = 8.4
+  const inside = (x: number, y: number, z: number) =>
+    Math.abs((x - cx) / rx) ** N + Math.abs((y - cy) / ry) ** N + Math.abs((z - cz) / rz) ** N <= 1
+  for (let x = 0; x <= 16; x++)
+    for (let y = 0; y <= 13; y++)
+      for (let z = 0; z <= 15; z++) {
+        if (!inside(x, y, z)) continue
+        const hair = y >= 9 || z <= 5 || ((x <= 1 || x >= 15) && y >= 3)
+        g.set(x, y, z, hair ? opts.hair : skin)
+      }
+  /** Nearest-to-camera occupied cell in a front column (the curved face). */
+  const front = (x: number, y: number) => {
+    for (let z = 15; z >= 8; z--) if (g.has(x, y, z)) return z
+    return -1
+  }
+  // a clean straight fringe, two rows above the eyes — nothing dips to the cheeks
+  for (let x = 0; x <= 16; x++)
+    for (const y of [7, 8]) {
+      const z = front(x, y)
+      if (z >= 0) g.set(x, y, z, opts.hair)
+    }
+  for (const [bx, by] of [[4, 1], [5, 1], [4, 2], [5, 2], [11, 1], [12, 1], [11, 2], [12, 2]] as const) {
+    const z = front(bx, by)
+    if (z >= 0) g.set(bx, by, z, PAL.blush)
+  }
+  const mz = front(8, 1)
+  if (mz >= 0) g.set(8, 1, mz, '#E08A7A')
+  if (opts.hairStyle === 'long') {
+    // the back curtain only — no face-framing front strands
+    g.fill(2, -7, 0, 14, -1, 3, opts.hair)
+    g.fill(4, -10, 0, 12, -8, 2, opts.hair)
+  }
+  return g
 }
 
 function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions): LabPerson {
@@ -98,10 +148,12 @@ function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions):
   bodyMesh.position.set(VOX / 2, 0, 0)
   group.add(bodyMesh)
 
-  // the game's exact head, riding higher
+  // the rounded experimental head, riding higher. AO off + low jitter: on a
+  // curved voxel surface every rounding step is a crevice, and the default
+  // shading paints dark bands across the hair.
   const headGroup = new THREE.Group()
-  const hd = buildHeadGrid(opts)
-  const headMesh = hd.build()
+  const hd = buildHeadV2(opts)
+  const headMesh = hd.build({ ao: false, jitter: 0.005 })
   headMesh.scale.setScalar(VOX)
   headMesh.position.set((-17 * VOX) / 2, 0, (-16 * VOX) / 2)
   headGroup.add(headMesh)
