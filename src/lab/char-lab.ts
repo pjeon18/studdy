@@ -8,7 +8,7 @@ import { VoxelGrid } from '../voxel'
 import { PAL, VOX, setToonRamp } from '../build'
 import { buildShell } from '../shell'
 import { buildItem } from '../items'
-import { type PersonOpts } from '../people'
+import { buildHeadGrid, type PersonOpts } from '../people'
 import type { RoomDoc } from '../types'
 
 // the game's day ramp so materials read exactly like in-game
@@ -97,26 +97,15 @@ function buildHeadV2(opts: PersonOpts): VoxelGrid {
   return g
 }
 
-// The current game head with exactly Paul's hair fixes and nothing else:
-// no crown highlight patch, no side locks, no bang scallops dipping toward
-// the eyes. Box shape, feature heights, and everything else untouched.
+// The current game head, its original hair intact (scalloped bangs and all),
+// with exactly two touches: the side locks that reached the eyes go back to
+// cheek skin, and the crown highlight patch is one solid hair color.
 function buildHeadFixed(opts: PersonOpts): VoxelGrid {
   const skin = opts.skin ?? PAL.skin
-  const g = new VoxelGrid()
-  g.roundedBox(0, 0, 0, 16, 12, 15, skin)
-  g.roundedBox(0, 9, 0, 16, 12, 15, opts.hair)
-  g.roundedBox(1, 13, 1, 15, 13, 14, opts.hair) // crown step, one solid color
-  g.fill(0, 0, 0, 16, 8, 5, opts.hair) // back of head
-  g.fill(0, 3, 0, 1, 8, 15, opts.hair) // sides
-  g.fill(15, 3, 0, 16, 8, 15, opts.hair)
-  g.fill(2, 7, 15, 14, 8, 15, opts.hair) // straight bangs, no scallop
-  g.fill(4, 1, 15, 5, 2, 15, PAL.blush)
-  g.fill(11, 1, 15, 12, 2, 15, PAL.blush)
-  g.set(8, 1, 15, '#E08A7A')
-  if (opts.hairStyle === 'long') {
-    g.fill(1, -7, 0, 15, -1, 4, opts.hair) // back curtain only
-    g.fill(3, -10, 0, 13, -8, 3, opts.hair)
-  }
+  const g = buildHeadGrid(opts)
+  g.fill(2, 2, 15, 3, 5, 15, skin) // the side locks — the pixels beside the eyes
+  g.fill(13, 2, 15, 14, 5, 15, skin)
+  g.fill(5, 13, 4, 11, 13, 11, opts.hair) // no highlight spot
   return g
 }
 
@@ -158,9 +147,10 @@ function buildPersonV2(opts: PersonOpts, pose: 'sit' | 'stand', P: Proportions, 
     // feet hang free (reference chibis dangle — stools are tall to them).
     torsoY0 = 3
     for (const lx of [legLx, legRx]) {
+      const calf = Math.min(8, P.leg) // short legs stay short on the stool
       body.fill(lx, 0, hzL + 1, lx + legW - 1, 2, hzR + 5, PAL.denim) // thighs forward
-      body.fill(lx, -8, hzR + 3, lx + legW - 1, -1, hzR + 5, PAL.denim) // calves down
-      body.fill(lx, -10, hzR + 4, lx + legW - 1, -9, hzR + 8, '#FFFFFF') // sneaker toe boxes
+      body.fill(lx, -calf, hzR + 3, lx + legW - 1, -1, hzR + 5, PAL.denim) // calves down
+      body.fill(lx, -calf - 2, hzR + 4, lx + legW - 1, -calf - 1, hzR + 8, '#FFFFFF') // sneaker toe boxes
     }
   }
 
@@ -271,7 +261,8 @@ const SEAT_Y = 1.78 // stool cushion top (catalog seatY)
 // B / C / D · the round-head experiments
 const B_BODY: Proportions = { leg: 12, torsoW: 12, torsoH: 11, torsoD: 7, arm: 3 }
 const VARIANTS: { x: number; P: Proportions; head: HeadKit }[] = [
-  { x: 3.6, P: B_BODY, head: HEAD_FIXED },
+  // A · way shorter legs: the current build's overall height, real legs
+  { x: 3.6, P: { ...B_BODY, leg: 7 }, head: HEAD_FIXED },
   // B · the same body under the rounded head
   { x: 10.2, P: B_BODY, head: HEAD_ROUND },
   // C · reference proportions: ~2.6 units tall, clear legs, hands at mid-thigh
